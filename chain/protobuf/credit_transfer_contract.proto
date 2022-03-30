@@ -1,41 +1,57 @@
-/* This files is part of the Hello World smart contract example that is included in Boilerplate.
- * It is only the definition of the contract, implementation is located in the "contract" folder
- * and tests are located in the "test" folder.
- *
- * You can use this as a basic template for new contracts.
- * 
- * When building Boilerplate or the contract project located in the "../contract/AElf.Contracts.CreditTransferContract/" 
- * protoc (the protobuf compiler) will be invoked and this file will produce a .c.cs file and .g.cs file, in the 
- * "../contract/AElf.Contracts.CreditTransferContract/Protobuf/Generated/" folder. 
- */
-
-// the version of the language, use proto3 for contracts
 syntax = "proto3";
 
-// some core imports for aelf chain types
 import "aelf/core.proto";
 import "aelf/options.proto";
-
-// import for using the google.protobuf.Empty type.
 import "google/protobuf/empty.proto";
-
-// the name of the C# namespace in which the contract code will be,
-// generated code will also be in this namespace.
+import "google/protobuf/wrappers.proto";
 option csharp_namespace = "AElf.Contracts.CreditTransferContract";
 
-// the contract definition: a gRPC service definition.
 service CreditTransferContract {
-
-    // the full name of the C# class that will contain the state (here <namespace>.<state-class-name> format).
+    
     option (aelf.csharp_state) = "AElf.Contracts.CreditTransferContract.CreditTransferContractState";
+    //SRT
+    rpc SRT_Create (google.protobuf.UInt64Value) returns (google.protobuf.Empty) { }
+    rpc SRT_Adjust (SRT) returns (google.protobuf.Empty) { }
+    //Course
+    rpc Course_Create (CourseInfo) returns (google.protobuf.Empty) { }
+    rpc Course_Adjust (CourseInfo) returns (google.protobuf.Empty) { }
 
-    // an action defined as a gRPC service method.
-    // this action take a google.protobuf.Empty (placeholder for void) as input
-    // and returns a custom defined type: HelloReturn.
-    rpc Hello (google.protobuf.Empty) returns (HelloReturn) { }
+}
+/*
+    1. all float number is presented by integer. the saved number are multiplied by 100 to represent two decimal places
+*/
+message CourseInfo {
+    uint64 courseID = 1;//course's ID
+    bool isCompulsory = 2;//if the course is compulsory, it will be true
+    uint64 courseType = 3;//used to identify courses' type (will be defined in constants)
+    uint64 holderID = 4;//identify who hold the course (ID of school or type of external organization)
+    uint64 isValid = 5;//show if the course is valid
 }
 
-// a custom message, used as the return type of the Hello action
-message HelloReturn {
-    string Value = 1;
+message CourseRecord {
+    CourseInfo courseInfo = 1;//course‘s basic info
+    bool state = 2;//show course's state (completed, invalid, etc.)
+    uint64 credit = 3;//course's credit (float)
+    uint64 score = 4;//course's score that student gets (float)
+    string note = 5;//notifications
+}
+
+message Protocol {
+    uint64 protoID = 1;//protocol's ID
+}
+
+message SRT {
+    uint64 studentID = 1;//student's ID, it's composed by UID itself and School ID 
+    // e.g.: A student has a real ID of 10001, his school's ID is 345. Then his studentID will be 34510001
+    repeated CourseRecord courses = 2;//courses that the student have taken
+    repeated Protocol protocols = 3;//protocols that the student have
+    uint64 rating = 4;//shows how actively students participate in the system. (float)
+    uint64 state = 5;//show student's state(studying, graduated, retreated)
+}
+
+message School {
+    uint64 schoolID = 1;//school's ID
+    aelf.Address schoolAddress = 2;//school's blockchain account's address
+    repeated uint64 studentIDs = 3;//ID of school's students
+    uint64 rating = 4;//shows how actively school and its students participate in the system (float)
 }

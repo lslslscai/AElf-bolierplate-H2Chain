@@ -1,3 +1,4 @@
+using AElf.Types;
 using Google.Protobuf.WellKnownTypes;
 
 namespace AElf.Contracts.CreditTransferContract
@@ -15,9 +16,39 @@ namespace AElf.Contracts.CreditTransferContract
         /// </summary>
         /// <param name="input">Empty message (from Protobuf)</param>
         /// <returns>a HelloReturn</returns>
-        public override HelloReturn Hello(Empty input)
+        public override Empty SRT_Create(UInt64Value input)
         {
-            return new HelloReturn {Value = "Hello World!"};
+            return new Empty();
+        }
+        
+        public override Empty SRT_Adjust(SRT input)
+        {
+            return new Empty();
+        }
+        
+        public override Empty Course_Create(CourseInfo input)
+        {
+            return new Empty();
+        }
+        
+        public override Empty Course_Adjust(CourseInfo input)
+        {
+            return new Empty();
+        }
+
+        private void Return_Solve(int input)
+        {
+            
+        }
+
+        private int SRT_Validate(SRT input)
+        {
+            return 0;
+        }
+        
+        private int Course_Validate(CourseInfo input)
+        {
+            return 0;
         }
     }
 }
