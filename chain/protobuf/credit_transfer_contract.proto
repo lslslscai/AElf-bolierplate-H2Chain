@@ -9,49 +9,93 @@ option csharp_namespace = "AElf.Contracts.CreditTransferContract";
 service CreditTransferContract {
     
     option (aelf.csharp_state) = "AElf.Contracts.CreditTransferContract.CreditTransferContractState";
+    //system
+    rpc Initialize (google.protobuf.Empty) returns (google.protobuf.Empty) { }
+    
     //SRT
-    rpc SRT_Create (google.protobuf.UInt64Value) returns (google.protobuf.Empty) { }
+    rpc SRT_Create (google.protobuf.StringValue) returns (google.protobuf.Empty) { }
     rpc SRT_Adjust (SRT) returns (google.protobuf.Empty) { }
     //Course
     rpc Course_Create (CourseInfo) returns (google.protobuf.Empty) { }
     rpc Course_Adjust (CourseInfo) returns (google.protobuf.Empty) { }
+    //School
+    rpc School_Register (School) returns (google.protobuf.Empty) { }
+    rpc School_Adjust (School) returns (google.protobuf.Empty) { }
+    
+    //courseRecord
+    rpc SR_Select(SRUploadInput) returns (google.protobuf.Empty) {}
+    rpc SR_Drop(SRDropInput) returns (google.protobuf.Empty) {}
+    rpc SR_Adjust(SRModifyInput) returns (google.protobuf.Empty) {}
+    
+    //views
+    rpc get_SRT(google.protobuf.StringValue) returns (SRT) {
+        option (aelf.is_view) = true;
+    }
 
+    rpc get_CourseInfo(google.protobuf.StringValue) returns (CourseInfo) {
+        option (aelf.is_view) = true;
+    }
+
+    rpc get_School(google.protobuf.StringValue) returns (School) {
+        option (aelf.is_view) = true;
+    }
 }
 /*
     1. all float number is presented by integer. the saved number are multiplied by 100 to represent two decimal places
 */
+//user data
 message CourseInfo {
-    uint64 courseID = 1;//course's ID
+    string courseID = 1;//course's ID
     bool isCompulsory = 2;//if the course is compulsory, it will be true
     uint64 courseType = 3;//used to identify courses' type (will be defined in constants)
-    uint64 holderID = 4;//identify who hold the course (ID of school or type of external organization)
-    uint64 isValid = 5;//show if the course is valid
+    string holderID = 4;//identify who hold the course (ID of school or type of external organization)
+    bool isValid = 5;//show if the course is valid
 }
 
 message CourseRecord {
-    CourseInfo courseInfo = 1;//course‘s basic info
-    bool state = 2;//show course's state (completed, invalid, etc.)
-    uint64 credit = 3;//course's credit (float)
-    uint64 score = 4;//course's score that student gets (float)
-    string note = 5;//notifications
+    string courseID = 1;//course‘s basic info
+    string studentID = 2;//student that have the course
+    Protocol protocol = 3;//protocol about the course
+    bool state = 4;//show course's state (completed, completing, etc.)
+    uint64 GPA = 5;//course's credit (float)
+    uint64 score = 6;//course's score that student gets (float)
+    string note = 7;//notifications
 }
 
 message Protocol {
-    uint64 protoID = 1;//protocol's ID
+    string protoID = 1;//protocol's ID
 }
 
 message SRT {
-    uint64 studentID = 1;//student's ID, it's composed by UID itself and School ID 
+    string studentID = 1;//student's ID, it's composed by UID itself and School ID 
     // e.g.: A student has a real ID of 10001, his school's ID is 345. Then his studentID will be 34510001
-    repeated CourseRecord courses = 2;//courses that the student have taken
-    repeated Protocol protocols = 3;//protocols that the student have
-    uint64 rating = 4;//shows how actively students participate in the system. (float)
-    uint64 state = 5;//show student's state(studying, graduated, retreated)
+    uint64 rating = 2;//shows how actively students participate in the system. (float)
+    uint64 state = 3;//show student's state(studying, graduated, retreated)
 }
 
 message School {
-    uint64 schoolID = 1;//school's ID
+    string schoolID = 1;//school's ID
     aelf.Address schoolAddress = 2;//school's blockchain account's address
-    repeated uint64 studentIDs = 3;//ID of school's students
     uint64 rating = 4;//shows how actively school and its students participate in the system (float)
+}
+
+//data in process
+message SRUploadInput {
+    string studentID = 1;//student that want the course
+    string courseID = 2;//course that to be selected
+    Protocol protocol = 3;//protocol about the course
+    string note = 4;//notification
+}
+
+message SRDropInput{
+    string studentID = 1;//student that have the course
+    string courseID = 2;//course that is selected
+}
+
+message SRModifyInput{
+    string studentID = 1;//student that have the course
+    string courseID = 2;//course that is selected
+    bool state = 3;//show course's state (completed, completing, etc.)
+    uint64 GPA = 4;//course's credit (float)
+    uint64 score = 5;//course's score that student gets (float)
 }
