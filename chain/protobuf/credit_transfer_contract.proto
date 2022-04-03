@@ -39,6 +39,10 @@ service CreditTransferContract {
     rpc get_School(google.protobuf.StringValue) returns (School) {
         option (aelf.is_view) = true;
     }
+
+    rpc get_CourseRecord(google.protobuf.StringValue) returns (CourseRecord) {
+        option (aelf.is_view) = true;
+    }
 }
 /*
     1. all float number is presented by integer. the saved number are multiplied by 100 to represent two decimal places
@@ -48,7 +52,6 @@ message CourseInfo {
     string courseID = 1;//course's ID
     bool isCompulsory = 2;//if the course is compulsory, it will be true
     uint64 courseType = 3;//used to identify courses' type (will be defined in constants)
-    string holderID = 4;//identify who hold the course (ID of school or type of external organization)
     bool isValid = 5;//show if the course is valid
 }
 

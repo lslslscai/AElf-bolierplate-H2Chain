@@ -10,5 +10,6 @@ namespace AElf.Contracts.CreditTransferContract
         
         public const int CREATION_MODE = 0;
         public const int INVOKE_MODE = 1;
+        public const int READ_MODE = 2;
     }
 }
