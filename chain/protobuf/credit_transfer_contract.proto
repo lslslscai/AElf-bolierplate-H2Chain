@@ -21,6 +21,9 @@ service CreditTransferContract {
     //School
     rpc School_Register (School) returns (google.protobuf.Empty) { }
     rpc School_Adjust (School) returns (google.protobuf.Empty) { }
+    //Teacher
+    rpc Teacher_Register (Teacher) returns (google.protobuf.Empty) { }
+    rpc Teacher_Adjust (Teacher) returns (google.protobuf.Empty) { }
     
     //courseRecord
     rpc SR_Select(SRUploadInput) returns (google.protobuf.Empty) {}
@@ -41,6 +44,10 @@ service CreditTransferContract {
     }
 
     rpc get_CourseRecord(google.protobuf.StringValue) returns (CourseRecord) {
+        option (aelf.is_view) = true;
+    }
+    
+    rpc get_Teacher(aelf.Address) returns (google.protobuf.StringValue) {
         option (aelf.is_view) = true;
     }
 }
@@ -82,6 +89,10 @@ message School {
     uint64 rating = 4;//shows how actively school and its students participate in the system (float)
 }
 
+message Teacher{
+    aelf.Address teacherAddress = 1;//教师对应钱包地址
+    string teacherID = 2;//教师编号
+}
 //data in process
 message SRUploadInput {
     string studentID = 1;//student that want the course

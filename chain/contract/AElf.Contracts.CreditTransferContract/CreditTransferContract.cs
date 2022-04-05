@@ -62,7 +62,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //检查新值合法性和非空
             Return_Solve(
-                SRT_Validate(input, CreditTransferContractConstants.CREATION_MODE),
+                SRT_Validate(input, CreditTransferContractConstants.MODIFY_MODE),
                 CreditTransferContractConstants.SRT_MODE
             );
             
@@ -113,7 +113,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //检查新值合法性和非空
             Return_Solve(
-                Course_Validate(input, CreditTransferContractConstants.CREATION_MODE),
+                Course_Validate(input, CreditTransferContractConstants.MODIFY_MODE),
                 CreditTransferContractConstants.COURSE_MODE
             );
             
@@ -162,7 +162,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //检查新值合法性和非空
             Return_Solve(
-                School_Validate(input, CreditTransferContractConstants.CREATION_MODE),
+                School_Validate(input, CreditTransferContractConstants.MODIFY_MODE),
                 CreditTransferContractConstants.SCHOOL_MODE
             );
             
@@ -295,7 +295,7 @@ namespace AElf.Contracts.CreditTransferContract
                     newRecord,  
                     State.CourseInfo_Base[new StringValue{Value = input.CourseID}],
                     State.SRT_Base[new StringValue{Value = input.StudentID}],
-                    CreditTransferContractConstants.CREATION_MODE,
+                    CreditTransferContractConstants.MODIFY_MODE,
                     courseRecord.Protocol
                 ),CreditTransferContractConstants.SR_MODE
             );
@@ -305,6 +305,49 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 Value = input.CourseID + input.StudentID
             }] = newRecord;
+            
+            return new Empty();
+        }
+
+        public override Empty Teacher_Register(Teacher input)
+        {
+            Return_Solve(
+                Teacher_Validate(input, CreditTransferContractConstants.CREATION_MODE),
+                CreditTransferContractConstants.TEACHER_MODE
+            );
+
+            State.Teacher_Base[input.TeacherAddress] = new StringValue{Value = input.TeacherID};
+            
+            return new Empty();
+        }
+        
+        public override Empty Teacher_Adjust(Teacher input)
+        {
+            //检查新值
+            Return_Solve(
+                Teacher_Validate(input, CreditTransferContractConstants.MODIFY_MODE),
+                CreditTransferContractConstants.TEACHER_MODE
+            );
+            
+            //先验非空
+            if(State.Teacher_Base[input.TeacherAddress] == null)
+                Return_Solve(4, CreditTransferContractConstants.TEACHER_MODE);
+            
+            //构建旧值
+            Teacher teacher = new Teacher
+            {
+                TeacherAddress = input.TeacherAddress,
+                TeacherID = State.Teacher_Base[input.TeacherAddress].Value
+            };
+            
+            //检查旧值
+            Return_Solve(
+                Teacher_Validate(teacher, CreditTransferContractConstants.INVOKE_MODE),
+                CreditTransferContractConstants.TEACHER_MODE
+            );
+            
+            //覆盖
+            State.Teacher_Base[input.TeacherAddress] = new StringValue{Value = input.TeacherID};
             
             return new Empty();
         }
@@ -362,6 +405,25 @@ namespace AElf.Contracts.CreditTransferContract
             );
             return courseInfo;
         }
+        
+        public override StringValue get_Teacher(Address input)
+        {
+            if(State.Teacher_Base[input] == null)
+                Return_Solve(4, CreditTransferContractConstants.TEACHER_MODE);
+            Teacher teacher = new Teacher
+            {
+                TeacherAddress = input,
+                TeacherID = State.Teacher_Base[input].Value
+            };
+            Return_Solve(
+                Teacher_Validate(
+                    teacher,
+                    CreditTransferContractConstants.READ_MODE
+                ),
+                CreditTransferContractConstants.TEACHER_MODE
+            );
+            return new StringValue{Value = teacher.TeacherID};
+        }
         /// <summary>
         /// Used to solve return value from XXX_Validation. 
         /// </summary>
@@ -382,13 +444,15 @@ namespace AElf.Contracts.CreditTransferContract
                     break;
                 case 4: prefix = "CourseRecord";
                     break;
+                case 5: prefix = "Teacher";
+                    break;
             }
             //0系列
             Assert(input != 1, prefix + " : sender identification failed!");
             Assert(input != 2, prefix + " : input invalid!");
             Assert(input != 3, prefix + " : intend to change data that can't change!");
             Assert(input != 4, prefix + " : content not found!");
-            
+            Assert(input != 5, prefix + " : content have already existed!");
             //1系列
             Assert(input != 101, prefix + " : system error!");
             Assert(input != 102, prefix + " : saved data incorrect!");
@@ -404,25 +468,35 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //先检查input是否为空
             if (input == null) 
-                return mode == 0? 2:4;//如果是创建模式返回输入错误，否则返回未找到
+                return (mode == 1 || mode == 3) ? 4 : 2;//如果是创建模式返回输入错误，否则返回未找到
             
             //检查studentID格式与内容
             if (input.StudentID.Length != 15)
-                return mode == 0 ? 2 : 102;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
+                return (mode == 1 || mode == 3) ? 102 : 2;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
             
-            //提取学校和学生的ID
+            //提取学校
             string schoolID = input.StudentID.Substring(0, 5);
             School school = State.School_Base[new StringValue {Value = schoolID}];
             
             //检查发起者
-            if (school == null) return 2;//学校不存在，返回输入错误
-            if (mode != 2 && school.SchoolAddress != Context.Sender) return 1;//试图增改数据，但所属学校并非发起者，返回发起者身份错误
+            if (school == null) return 4;//学校不存在，返回未找到
+            if (school.SchoolAddress != Context.Sender)//若不是学校账户发起的，需要检查是不是教师
+            {
+                if (State.Teacher_Base[Context.Sender] == null)
+                    return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
+                string teacherID = State.Teacher_Base[Context.Sender].Value;
+                if (mode != 3 && teacherID.Substring(0,5) != schoolID) 
+                    return 1;//教师试图增改数据，但他并不属于目标学校，返回发起者身份错误
+            }
+            
 
             //检查state
             if (mode == 1 && (input.State == 1 || input.State == 2)) return 3;//引用了不可修改状态
             if (input.State > 2)//非法状态（创建模式下任何非零状态，引用模式下非0，1，2状态）
-                return mode == 0 ? 2 : 102;//状态输入不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
+                return (mode == 1 || mode == 3) ? 102 : 2;//状态输入不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
             
+            if (mode == 0 && State.SRT_Base[new StringValue { Value = input.StudentID }] != null)
+                return 5;//学生信息已经存在，不可重复添加
             return 0;
         }
         
@@ -436,7 +510,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //先检查input是否为空
             if (input == null) 
-                return mode == 0? 2:4;//如果是创建模式返回输入错误，否则返回未找到
+                return mode == 1 || mode == 3 ? 4 : 2;//如果是创建模式返回输入错误，否则返回未找到
             
             //提取学校和学生的ID
             string schoolID = input.CourseID.Substring(0, 5);
@@ -445,11 +519,21 @@ namespace AElf.Contracts.CreditTransferContract
             //检查输入数据格式与内容
             if (input.CourseID.Length != 12//ID长度不对
                 || input.CourseType > 3)//类型不对
-                return mode == 0 ? 2 : 102;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
+                return (mode == 1 || mode == 3) ? 102 : 2;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
             
             //检查发起者
             if (school == null) return 2;//学校不存在，返回输入错误
-            if (mode != 2 && school.SchoolAddress != Context.Sender) return 1;//试图增改数据，但所属学校并非发起者，返回发起者身份错误
+            if (school.SchoolAddress != Context.Sender)//若不是学校账户发起的，需要检查是不是教师
+            {
+                if (State.Teacher_Base[Context.Sender] == null)
+                    return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
+                string teacherID = State.Teacher_Base[Context.Sender].Value;
+                if (mode != 3 && teacherID.Substring(0,5) != schoolID) 
+                    return 1;//教师试图增改数据，但他并不属于目标学校，返回发起者身份错误
+            }
+            
+            if (mode == 0 && State.CourseInfo_Base[new StringValue { Value = input.CourseID }] != null)
+                return 5;//课程信息已经存在，不可重复添加
             
             return 0;
         }
@@ -464,15 +548,20 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //先检查input是否为空
             if (input == null) 
-                return mode == 0? 2:4;//如果是创建模式返回输入错误，否则返回未找到
+                return (mode == 1 || mode == 3) ? 4 : 2;//如果是创建模式返回输入错误，否则返回未找到
             //经过测试，创建模式的错误无法进入，故山区
             
             //检查schoolID格式与内容
             if (input.SchoolID.Length != 5)
-                return mode == 0 ? 2 : 102;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
+                return (mode == 1 || mode == 3) ? 102 : 2;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
 
             //检查发起者
-            if (mode != 2 && input.SchoolAddress != Context.Sender) return 1;//试图增改数据，但所属学校并非发起者，返回发起者身份错误
+            if (mode != 3 && input.SchoolAddress != Context.Sender)
+                return 1;//试图增改学校信息，但发起者并非学校系统账号，返回发起者身份错误
+            
+            //检查是否有重复数据
+            if (mode == 0 && State.School_Base[new StringValue { Value = input.SchoolID }] != null)
+                return 5;//学校信息已经存在，不可重复添加
             
             return 0;
         }
@@ -492,6 +581,33 @@ namespace AElf.Contracts.CreditTransferContract
         }
         
         /// <summary>
+        /// Used to Validate Teacher.
+        /// </summary>
+        /// <param name="input">Teacher to check</param>
+        /// <returns>an Error Code</returns>
+        private int Teacher_Validate(Teacher input, int mode)
+        {
+            //先检查input是否为空
+            if (input == null) 
+                return (mode == 1 || mode == 3) ? 4 : 2;//如果是创建模式返回输入错误，否则返回未找到
+
+            if (input.TeacherID.Length != 11)//ID长度不对
+                return (mode == 1 || mode == 3) ? 102 : 2;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
+            
+            //提取所属学校信息
+            string schoolID = input.TeacherID.Substring(0, 5);
+            School school = State.School_Base[new StringValue {Value = schoolID}];
+            //检查发起者
+            if (school == null) return 2;//学校不存在，返回输入错误
+            if (mode != 3 && school.SchoolAddress != Context.Sender) 
+                return 1;//试图增改教师信息，但发起者并非学校系统账号，返回发起者身份错误
+            
+            if (mode == 0 && State.Teacher_Base[input.TeacherAddress] != null)
+                return 5;//用户已经存在，不可重复添加
+            return 0;
+        }
+        
+        /// <summary>
         /// Used to Validate CourseRecord. It checks course, student, protocol and courseRecord's score, GPA and state.
         /// </summary>
         /// <param name="courseRecord">courseRecord to check</param>
@@ -506,7 +622,7 @@ namespace AElf.Contracts.CreditTransferContract
             int SRMode = mode == 2 ? 2 : 1;//如果只读模式检查，则也以只读模式检查student和course，否则按照引用模式检查二者
             //检查选课信息非空
             if(courseRecord == null)
-                return mode == 0? 2:4;//如果是创建模式返回输入错误，否则返回未找到
+                return (mode == 1 || mode == 3) ? 4 : 2;//如果是创建模式返回输入错误，否则返回未找到
             
             int SRT_val_ret = SRT_Validate(student, SRMode);
             if (SRT_val_ret != 0) return SRT_val_ret;
@@ -529,13 +645,18 @@ namespace AElf.Contracts.CreditTransferContract
                 if (proto_val_ret != 0) return proto_val_ret;
                 
                 if(course.IsValid == false) return 2;//试图选已经不再开设的课程，返回输入错误
+
+                if (State.CourseRecoed_Base[new StringValue {
+                        Value = course.CourseID + student.StudentID
+                    }] != null)
+                    return 5;//课程信息已经存在，不可重复添加
             }
             
             //额外的数据合法性检查
             if (courseRecord.Score > 100_00)
-                return mode == 0 ? 2 : 102;//分数非法，若是创建模式则返回输入错误；否则（提取数据有问题）返回系统数据错误
+                return (mode == 1 || mode == 3) ? 102 : 2;//分数非法，若是创建模式则返回输入错误；否则（提取数据有问题）返回系统数据错误
             if (courseRecord.GPA > 4_00)
-                return mode == 0 ? 2 : 102;//绩点非法，若是创建模式则返回输入错误；否则（提取数据有问题）返回系统数据错误
+                return (mode == 1 || mode == 3) ? 102 : 2;//绩点非法，若是创建模式则返回输入错误；否则（提取数据有问题）返回系统数据错误
 
             return 0;
         }

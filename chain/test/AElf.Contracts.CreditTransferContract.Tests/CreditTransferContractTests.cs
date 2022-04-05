@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using AElf.ContractTestBase.ContractTestKit;
+using AElf.Cryptography.ECDSA;
 using AElf.Types;
 using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
@@ -11,6 +12,28 @@ using Xunit.Abstractions;
 
 namespace AElf.Contracts.CreditTransferContract
 {
+    public class testConstants : CreditTransferContractTestBase
+    {
+        public static ECKeyPair keyPair = SampleAccount.Accounts.First().KeyPair;
+        public static Address address = Address.FromPublicKey(keyPair.PublicKey);
+
+        public static ECKeyPair keyPair1 = SampleAccount.Accounts.ElementAt(1).KeyPair;
+        public static Address address1 = Address.FromPublicKey(keyPair1.PublicKey);
+
+        public static ECKeyPair bob = SampleAccount.Accounts.Reverse().ElementAt(1).KeyPair;
+        public static Address bobAddress = Address.FromPublicKey(bob.PublicKey);
+
+        public static ECKeyPair alice = SampleAccount.Accounts.Reverse().First().KeyPair;
+        public static Address aliceAddress = Address.FromPublicKey(alice.PublicKey);
+
+        public const string studentID = "100563018216282";
+        public const string bobSchoolID = "10056";
+        public const string bobTeacherID = "10056216001";
+        public const string courseID = "100562160001";
+        public const string aliceSchoolID = "10057";
+        public const string aliceTeacherID = "10057216001";
+    }
+    
     public class SchoolTests : CreditTransferContractTestBase
     {
         private readonly ITestOutputHelper _testOutputHelper;
@@ -26,24 +49,62 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task School_Register_Success_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
 
             await stub.School_Register.SendAsync(new School
             {
-                SchoolID = "10056",
-                SchoolAddress = address,
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
                 Rating = 0
             });
 
             var schoolRet = await stub.get_School.CallAsync(new StringValue
             {
-                Value = "10056"
+                Value = testConstants.bobSchoolID
             });
             
-            schoolRet.SchoolAddress.ShouldBe(address);
+            schoolRet.SchoolAddress.ShouldBe(testConstants.address);
+        }
+        
+        /// <summary>
+        /// Test for School_Register with input that have already existed
+        /// (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task School_Register_Repeated_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+
+            var schoolRet = await stub.get_School.CallAsync(new StringValue
+            {
+                Value = testConstants.bobSchoolID
+            });
+            schoolRet.SchoolAddress.ShouldBe(testConstants.address);
+
+            //自己进行重复创建，会因为重复添加数据而被阻止
+            try
+            {
+                await stub.School_Register.SendAsync(new School
+                {
+                    SchoolID = testConstants.bobSchoolID,
+                    SchoolAddress = testConstants.address,
+                    Rating = 0
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("School : content have already existed!");
+                return;
+            }
+
+            throw new Exception("should not success!");
         }
         
         /// <summary>
@@ -52,26 +113,24 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task School_Adjust_Success_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
 
             await stub.School_Register.SendAsync(new School
             {
-                SchoolID = "10056",
-                SchoolAddress = address,
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
                 Rating = 0
             });
 
             await stub.School_Adjust.SendAsync(new School{
-                SchoolID = "10056",
-                SchoolAddress = address,
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
                 Rating = 100
             });
             
             var schoolRet = await stub.get_School.CallAsync(new StringValue
             {
-                Value = "10056"
+                Value = testConstants.bobSchoolID
             });
             
             schoolRet.Rating.ToString().ShouldBe("100");
@@ -83,19 +142,15 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task School_Register_Invalid_Address_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceAddress = Address.FromPublicKey(alice.PublicKey);
-            var aliceStub = GetCreditTransferContractStub(alice);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             try
             {
                 await aliceStub.School_Register.SendAsync(new School
                 {
-                    SchoolID = "10056",
-                    SchoolAddress = address,
+                    SchoolID = testConstants.bobSchoolID,
+                    SchoolAddress = testConstants.address,
                     Rating = 0
                 });
             }
@@ -108,8 +163,8 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 await stub.School_Register.SendAsync(new School
                 {
-                    SchoolID = "10056",
-                    SchoolAddress = aliceAddress,
+                    SchoolID = testConstants.bobSchoolID,
+                    SchoolAddress = testConstants.aliceAddress,
                     Rating = 0
                 });
             }
@@ -127,16 +182,14 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task School_Register_Invalid_ID_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
             
             try
             {
                 await stub.School_Register.SendAsync(new School
                 {
                     SchoolID = "1005",
-                    SchoolAddress = address,
+                    SchoolAddress = testConstants.address,
                     Rating = 0
                 });
             }
@@ -154,14 +207,12 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task School_Search_Not_Found_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
 
             await stub.School_Register.SendAsync(new School
             {
-                SchoolID = "10056",
-                SchoolAddress = address,
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
                 Rating = 0
             });
             //should failed and show assertionException before here
@@ -169,9 +220,9 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 var schoolRet = await stub.get_School.CallAsync(new StringValue
                 {
-                    Value = "10057"
+                    Value = testConstants.aliceSchoolID
                 });
-                schoolRet.SchoolAddress.ShouldBe(address);
+                schoolRet.SchoolAddress.ShouldBe(testConstants.address);
             }
             catch (Exception e)
             {
@@ -187,24 +238,384 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task School_Search_Successful_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            
             await stub.School_Register.SendAsync(new School
             {
-                SchoolID = "10056",
-                SchoolAddress = address,
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
                 Rating = 0
             });
             //should failed and show assertionException before here
             var schoolRet = await aliceStub.get_School.CallAsync(new StringValue
             {
-                Value = "10056"
+                Value = testConstants.bobSchoolID
             });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            schoolRet.SchoolAddress.ShouldBe(testConstants.address);
+        }
+    }
+
+    public class TeacherTests : CreditTransferContractTestBase
+    {
+        private readonly ITestOutputHelper _testOutputHelper;
+
+        public TeacherTests(ITestOutputHelper testOutputHelper)
+        {
+            _testOutputHelper = testOutputHelper;
+        }
+        
+        /// <summary>
+        /// Test for Teacher_Register with good input
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Register_Success_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+        }
+        
+        /// <summary>
+        /// Test for Teacher_Register with input that have already existed
+        /// (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Register_Repeated_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+
+            //自己进行重复创建，会因为重复添加数据而被阻止
+            try
+            {
+                await stub.Teacher_Register.SendAsync(new Teacher
+                {
+                    TeacherAddress = testConstants.bobAddress,
+                    TeacherID = testConstants.bobTeacherID
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : content have already existed!");
+                return;
+            }
+
+            throw new Exception("should not success!");
+        }
+        
+        /// <summary>
+        /// Test for Teacher_Register with invalid TeacherID (Exception will be caught and its content will be tested)
+        /// </summary>
+        /// <remarks>can't detect wrong TeacherAddress! The correspondence between TeacherAddress and TeacherID should be
+        /// guaranteed before sending transaction.</remarks>
+        [Fact]
+        public async Task Teacher_Register_Invalid_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+            
+            //按照错误ID创建，会因为格式不对而被阻止
+            try
+            {
+                await stub.Teacher_Register.SendAsync(new Teacher
+                {
+                    TeacherAddress = testConstants.bobAddress,
+                    TeacherID = "1005621601"
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : input invalid!");
+                return;
+            }
+            
+            throw new Exception("should not success!");
+        }
+        
+        /// <summary>
+        /// Test for Teacher_Register from wrong address (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Register_Invalid_Address_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+            
+            //由其他人进行创建，会因为增改不属于自己的数据而被阻止
+            try
+            {
+                await aliceStub.Teacher_Register.SendAsync(new Teacher
+                {
+                    TeacherAddress = testConstants.bobAddress,
+                    TeacherID = testConstants.bobTeacherID
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : sender identification failed!");
+                return;
+            }
+            
+            throw new Exception("should not success!");
+        }
+
+        /// <summary>
+        /// Test for get_Teacher with good input
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Search_Success_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+        }
+        
+        /// <summary>
+        /// Test for get_Teacher with invalid search (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Search_Not_Found_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+            
+            try
+            {
+                var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.aliceAddress); 
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : content not found!");
+                return;
+            }
+            
+            throw new Exception("should not success!");
+        }
+
+        /// <summary>
+        /// Test for Teacher_Adjust with good input
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Adjust_Success_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+            
+            await stub.Teacher_Adjust.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = "10056216002"
+            });
+            
+            var teacherRet1 = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet1.Value.ShouldBe("10056216002");
+        }
+
+        /// <summary>
+        /// Test for Teacher_Adjust with invalid TeacherID or TeacherAddress that not exist
+        ///  (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Adjust_Invalid_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+            
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+            
+            //修改不存在的教师，会因为内容不存在而被阻止
+            try
+            {
+                await stub.Teacher_Adjust.SendAsync(new Teacher
+                {
+                    TeacherAddress = testConstants.aliceAddress,
+                    TeacherID = "10056216002"
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : content not found!");
+            }
+            
+            //按照错误ID修改，会因为格式不对而被阻止
+            try
+            {
+                await stub.Teacher_Adjust.SendAsync(new Teacher
+                {
+                    TeacherAddress = testConstants.bobAddress,
+                    TeacherID = "1005621601"
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : input invalid!");
+                return;
+            }
+            
+            throw new Exception("should not success!");
+        }
+        
+        /// <summary>
+        /// Test for Teacher_Adjust from wrong address (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task Teacher_Adjust_Invalid_Address_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
+            
+            //bob所属学校创建bob教师信息，成功
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherAddress = testConstants.bobAddress,
+                TeacherID = testConstants.bobTeacherID
+            });
+
+            var teacherRet = await bobStub.get_Teacher.CallAsync(testConstants.bobAddress); 
+            teacherRet.Value.ShouldBe(testConstants.bobTeacherID);
+            
+            //由其他人进行修改，会因为增改不属于自己的数据而被阻止
+            try
+            {
+                await aliceStub.Teacher_Adjust.SendAsync(new Teacher
+                {
+                    TeacherAddress = testConstants.bobAddress,
+                    TeacherID = "10056216002"
+                });
+            }
+            catch(Exception e)
+            {
+                e.Message.ShouldContain("Teacher : sender identification failed!");
+                return;
+            }
+            
+            throw new Exception("should not success!");
         }
     }
     
@@ -212,6 +623,84 @@ namespace AElf.Contracts.CreditTransferContract
     {
         private readonly ITestOutputHelper _testOutputHelper;
 
+        /// <summary>
+        /// Method for creating School with parameters
+        /// </summary>
+        private async Task create_School(
+            string schoolID, Address address,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+            )
+        {
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = schoolID,
+                SchoolAddress = address,
+                Rating = 0
+            });
+            var schoolRet = await stub.get_School.CallAsync(new StringValue
+            {
+                Value = schoolID
+            });
+            schoolRet.SchoolAddress.ShouldBe(address);
+        }
+        
+        /// <summary>
+        /// Method for creating Teacher with parameters
+        /// </summary>
+        private async Task create_Teacher(
+            string teacherID, Address address,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
+        {
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherID = teacherID,
+                TeacherAddress = address,
+            });
+            var schoolRet = await stub.get_Teacher.CallAsync(address);
+            schoolRet.Value.ShouldBe(teacherID);
+        }
+        
+        /// <summary>
+        /// Method for creating SRT with parameters
+        /// </summary>
+        private async Task create_SRT(
+            string studentID,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
+        {
+            await stub.SRT_Create.SendAsync(new StringValue
+            {
+                Value = studentID
+            });
+            
+            var studentRet = await stub.get_SRT.CallAsync(new StringValue
+            {
+                Value = studentID
+            });
+            studentRet.StudentID.ShouldBe(studentID);
+            studentRet.State.ToString().ShouldBe("0");
+        }
+
+        /// <summary>
+        /// Method for modify SRT with parameters
+        /// </summary>
+        private async Task adjust_SRT(
+            SRT student,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
+        {
+            await stub.SRT_Adjust.SendAsync(student);
+            
+            var studentRet = await stub.get_SRT.CallAsync(new StringValue
+            {
+                Value = student.StudentID
+            });
+            studentRet.StudentID.ShouldBe(student.StudentID);
+            studentRet.State.ToString().ShouldBe(student.State.ToString());
+            studentRet.Rating.ToString().ShouldBe(student.Rating.ToString());
+        }
+        
         public SRTTests(ITestOutputHelper testOutputHelper)
         {
             _testOutputHelper = testOutputHelper;
@@ -223,33 +712,38 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SRT_Create_Success_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            await create_SRT(testConstants.studentID, bobStub);
+        }
+        
+        /// <summary>
+        /// Test for SRT_Create with input that have already existed
+        /// (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task SRT_Create_Repeated_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.SRT_Create.SendAsync(new StringValue
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            await create_SRT(testConstants.studentID, bobStub);
+            try
             {
-                Value = "100563018216282"
-            });
-            var studentRet = await stub.get_SRT.CallAsync(new StringValue
+                await create_SRT(testConstants.studentID, bobStub);
+            }
+            catch (Exception e)
             {
-                Value = "100563018216282"
-            });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
+                e.Message.ShouldContain("SRT : content have already existed!");
+                return;
+            }
+
+            throw new Exception("should not success!");
         }
         
         /// <summary>
@@ -258,46 +752,22 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SRT_Adjust_Success_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            await create_SRT(testConstants.studentID, bobStub);
+            
             var studentRet = await stub.get_SRT.CallAsync(new StringValue
             {
-                Value = "100563018216282"
+                Value = testConstants.studentID
             });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
 
             var newSRT = studentRet;
             newSRT.State = 1;
             newSRT.Rating = 100;
-            
-            await stub.SRT_Adjust.SendAsync(newSRT);
-            var studentRet1 = await stub.get_SRT.CallAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            studentRet1.StudentID.ShouldBe("100563018216282");
-            studentRet1.State.ToString().ShouldBe("1");
-            studentRet1.Rating.ToString().ShouldBe("100");
+            await adjust_SRT(newSRT, bobStub);
         }
         
         /// <summary>
@@ -306,28 +776,16 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SRT_Create_Invalid_ID_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+
+            //尝试创建ID格式错误的学生，会由于输入无效中止
             try
             {
-                await stub.SRT_Create.SendAsync(new StringValue
-                {
-                    Value = "10056301821628"
-                });
+                await create_SRT("10056301821628", bobStub);
             }
             catch (Exception e)
             {
@@ -343,30 +801,21 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SRT_Create_Invalid_Address_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            //尝试让school1的教师alice创建属于school的学生，会因为身份验证失败中止
             try
             {
-                await aliceStub.SRT_Create.SendAsync(new StringValue
-                {
-                    Value = "100563018216282"
-                });
+                await create_SRT(testConstants.studentID, aliceStub);
             }
             catch (Exception e)
             {
@@ -382,35 +831,18 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SRT_Search_Not_Found_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            var studentRet = await stub.get_SRT.CallAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            await create_SRT(testConstants.studentID, bobStub);
             try
             {
                 await aliceStub.get_SRT.CallAsync(new StringValue
@@ -432,81 +864,78 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SRT_Search_Success_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            var studentRrt = await aliceStub.get_SRT.CallAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            await create_SRT(testConstants.studentID, bobStub);//创建SRT时已经完成检索了
             
-            var studentRet = await stub.get_SRT.CallAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
         }
         
         /// <summary>
-        /// Test for SRT_Adjust with invalid new state (Exception will be caught and its content will be tested)
+        /// Test for SRT_Adjust with invalid new state, school or SRT that not exist
+        /// (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task SRT_Adjust_New_Invalid_State_Test()
+        public async Task SRT_Adjust_Invalid_Input_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
+            await create_SRT(testConstants.studentID, bobStub);//创建SRT时已经完成检索了
             var studentRet = await stub.get_SRT.CallAsync(new StringValue
             {
-                Value = "100563018216282"
+                Value = testConstants.studentID
             });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
-
+            //studentRet.StudentID.ShouldBe(studentID);
+            //尝试修改不存在的学生，会由于数据不存在中止
             try
             {
-                var newSRT = studentRet;
-                newSRT.State = 3;
-                await stub.SRT_Adjust.SendAsync(newSRT);
+                var newSRT = studentRet.Clone();
+                newSRT.State = 1; 
+                newSRT.StudentID = "100563018216283";//不存在的学生
+                await adjust_SRT(newSRT, bobStub);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("SRT : content not found!");
+            }
+            
+            //尝试修改所属学校不存在的学生，会由于输入无效被终止
+            try
+            {
+                var newSRT1 = studentRet.Clone();
+                newSRT1.State = 1; 
+                newSRT1.StudentID = "100583018216282";//不存在的学校(如果输入10057的话会因为修改不属于本校的学生被阻止)
+                await adjust_SRT(newSRT1, bobStub);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("SRT : content not found!");
+            }
+            
+            //尝试使用错误State修改数据，会由于输入无效中止
+            try
+            {
+                var newSRT2 = studentRet.Clone();
+                newSRT2.State = 3;//无效的State
+                newSRT2.Rating = 100;
+                await adjust_SRT(newSRT2, bobStub);
             }
             catch (Exception e)
             {
@@ -520,39 +949,26 @@ namespace AElf.Contracts.CreditTransferContract
         /// Test for SRT_Adjust from wrong address (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task SRT_Adjust_Old_Invalid_Address_Test()
+        public async Task SRT_Adjust_Invalid_Address_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
+            await create_SRT(testConstants.studentID, bobStub);//创建SRT时已经完成检索了
             var studentRet = await stub.get_SRT.CallAsync(new StringValue
             {
-                Value = "100563018216282"
+                Value = testConstants.studentID
             });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
-
+            
+            //尝试让school1的教师alice修改属于school的学生，会因为身份验证失败中止
             try
             {
                 var newSRT = studentRet;
@@ -572,152 +988,43 @@ namespace AElf.Contracts.CreditTransferContract
         /// (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task SRT_Adjust_Old_Blocked_Change_Test()
+        public async Task SRT_Adjust_Blocked_Change_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
+            await create_SRT(testConstants.studentID, bobStub);//创建SRT时已经完成检索了
             var studentRet = await stub.get_SRT.CallAsync(new StringValue
             {
-                Value = "100563018216282"
+                Value = testConstants.studentID
             });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
             
             var newSRT = studentRet;
             newSRT.State = 1;
-            await stub.SRT_Adjust.SendAsync(newSRT);
-                
+            await adjust_SRT(newSRT, bobStub);//修改结果验证已经在这里做了
             var studentRet1 = await stub.get_SRT.CallAsync(new StringValue
             {
-                Value = "100563018216282"
+                Value = testConstants.studentID
             });
-            studentRet1.State.ToString().ShouldBe("1");
+            
+            //尝试修改已经不再开设的课程的信息（不可修改），会因为不可修改而终止
             try
             {
-                var newSRT1 = studentRet;
+                var newSRT1 = studentRet1;
                 newSRT1.Rating = 100;
-                await stub.SRT_Adjust.SendAsync(newSRT1);
+                await adjust_SRT(newSRT1, bobStub);
             }
             catch (Exception e)
             {
                 e.Message.ShouldContain("SRT : intend to change data that can't change!");
-                return;
-            }
-            throw new Exception("should not success!");
-        }
-        
-        /// <summary>
-        /// Test for SRT_Adjust with changing data that not exists
-        /// (Exception will be caught and its content will be tested)
-        /// </summary>
-        [Fact]
-        public async Task SRT_Adjust_Old_Nonexistent_SRT_Test()
-        {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            var studentRet = await stub.get_SRT.CallAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
-            
-            try
-            {
-                var newSRT = studentRet;
-                newSRT.StudentID = "100563018216283";
-                await stub.SRT_Adjust.SendAsync(newSRT);
-            }
-            catch (Exception e)
-            {
-                e.Message.ShouldContain("SRT : content not found!");
-                return;
-            }
-            throw new Exception("should not success!");
-        }
-        
-        /// <summary>
-        /// Test for SRT_Adjust with changing data whose school isn't exists
-        /// (Exception will be caught and its content will be tested)
-        /// </summary>
-        [Fact]
-        public async Task SRT_Adjust_Old_Nonexistent_School_Test()
-        {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.SRT_Create.SendAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            var studentRet = await stub.get_SRT.CallAsync(new StringValue
-            {
-                Value = "100563018216282"
-            });
-            studentRet.StudentID.ShouldBe("100563018216282");
-            studentRet.State.ToString().ShouldBe("0");
-            
-            try
-            {
-                var newSRT = studentRet;
-                newSRT.StudentID = "100573018216282";
-                await stub.SRT_Adjust.SendAsync(newSRT);
-            }
-            catch (Exception e)
-            {
-                e.Message.ShouldContain("SRT : input invalid!");
                 return;
             }
             throw new Exception("should not success!");
@@ -734,40 +1041,116 @@ namespace AElf.Contracts.CreditTransferContract
         }
 
         /// <summary>
-        /// Test for Course_Create with good input
+        /// Method for creating School with parameters
         /// </summary>
-        [Fact]
-        public async Task Course_Create_Success_Test()
+        private async Task create_School(
+            string schoolID, Address address,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-
             await stub.School_Register.SendAsync(new School
             {
-                SchoolID = "10056",
+                SchoolID = schoolID,
                 SchoolAddress = address,
                 Rating = 0
             });
             var schoolRet = await stub.get_School.CallAsync(new StringValue
             {
-                Value = "10056"
+                Value = schoolID
             });
             schoolRet.SchoolAddress.ShouldBe(address);
-
+        }
+        
+        /// <summary>
+        /// Method for creating Teacher with parameters
+        /// </summary>
+        private async Task create_Teacher(
+            string teacherID, Address address,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
+        {
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherID = teacherID,
+                TeacherAddress = address,
+            });
+            var schoolRet = await stub.get_Teacher.CallAsync(address);
+            schoolRet.Value.ShouldBe(teacherID);
+        }
+        
+        /// <summary>
+        /// Method for creating Course with parameters
+        /// </summary>
+        private async Task create_Course(
+            string courseID,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
+        {
             await stub.Course_Create.SendAsync(new CourseInfo
             {
-                CourseID = "100562160001",
+                CourseID = courseID,
                 IsCompulsory = true,
                 CourseType = 0,
                 IsValid = true
             });
             var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = courseID
             });
-            courseRet.CourseID.ShouldBe("100562160001");
+            courseRet.CourseID.ShouldBe(courseID);
             courseRet.IsValid.ShouldBe(true);
+        }
+        
+        /// <summary>
+        /// Test for Course_Create with good input
+        /// </summary>
+        [Fact]
+        public async Task Course_Create_Success_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            await create_Course(testConstants.courseID, bobStub);
+        }
+        
+        /// <summary>
+        /// Test for Course_Create with input that have already existed
+        /// (Exception will be caught and its content will be tested)
+        /// </summary>
+        [Fact]
+        public async Task Course_Create_Repeated_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            await create_Course(testConstants.courseID, bobStub);
+            try
+            {
+                await create_Course(testConstants.courseID, bobStub);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("Course : content have already existed");
+                return;
+            }
+
+            throw new Exception("should not success!");
         }
         
         /// <summary>
@@ -776,56 +1159,45 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task Course_Adjust_Success_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
-            //创建课程
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160001",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            await create_Course(testConstants.courseID, bobStub);
             var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = testConstants.courseID
             });
-            courseRet.CourseID.ShouldBe("100562160001");
+            courseRet.CourseID.ShouldBe(testConstants.courseID);
             courseRet.IsValid.ShouldBe(true);
 
             //改成选修课
-            var newCourse = courseRet;
+            var newCourse = courseRet.Clone();
             newCourse.IsCompulsory = false;
-            await stub.Course_Adjust.SendAsync(newCourse);
+            await bobStub.Course_Adjust.SendAsync(newCourse);
             var courseRet1 = await stub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = testConstants.courseID
             });
             courseRet1.IsCompulsory.ShouldBe(false);
             
             //关闭课程
-            var newCourse2 = courseRet;
+            var newCourse2 = courseRet1.Clone();
             newCourse2.IsValid = false;
-            await stub.Course_Adjust.SendAsync(newCourse2);
+            await bobStub.Course_Adjust.SendAsync(newCourse2);
             var courseRet2 = await stub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = testConstants.courseID
             });
             courseRet2.IsValid.ShouldBe(false);
+            courseRet2.IsCompulsory.ShouldBe(false);
         }
         
         /// <summary>
@@ -834,31 +1206,22 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task Course_Create_Invalid_ID_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            await create_Course(testConstants.courseID, bobStub);
 
             try
             {
-                await stub.Course_Create.SendAsync(new CourseInfo
-                {
-                    CourseID = "10056216001",
-                    IsCompulsory = true,
-                    CourseType = 0,
-                    IsValid = true
-                });
+                await create_Course("10056216001", bobStub);
             }
             catch (Exception e)
             {
@@ -874,27 +1237,22 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task Course_Create_Invalid_Type_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
             try
             {
-                await stub.Course_Create.SendAsync(new CourseInfo
+                await bobStub.Course_Create.SendAsync(new CourseInfo
                 {
-                    CourseID = "10056216001",
+                    CourseID = testConstants.courseID,
                     IsCompulsory = true,
                     CourseType = 4,
                     IsValid = true
@@ -914,33 +1272,21 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task Course_Create_Invalid_Address_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+
+            //让alice创建课程（并不是alice所代表学校的课程）
             try
             {
-                //让alice创建课程（并不是alice所代表学校的课程）
-                await aliceStub.Course_Create.SendAsync(new CourseInfo
-                {
-                    CourseID = "100562160001",
-                    IsCompulsory = true,
-                    CourseType = 0,
-                    IsValid = true
-                });
+                await create_Course(testConstants.courseID, aliceStub);
             }
             catch (Exception e)
             {
@@ -957,37 +1303,23 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task Course_Search_Not_Found_Test()
         {
              
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160002",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
+            await create_Course("100562160002", bobStub);
             try
             {
                 await aliceStub.get_CourseInfo.CallAsync(new StringValue
                 {
-                    Value = "100562160001"
+                    Value = testConstants.courseID
                 });
             }
             catch (Exception e)
@@ -1004,81 +1336,74 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task Course_Search_Success_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160001",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
+            await create_Course(testConstants.courseID, bobStub);
             var courseRet = await aliceStub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = testConstants.courseID
             });
-            courseRet.CourseID.ShouldBe("100562160001");
+            courseRet.CourseID.ShouldBe(testConstants.courseID);
             courseRet.IsValid.ShouldBe(true);
         }
         
         /// <summary>
-        /// Test for Course_Adjust with invalid CourseType (Exception will be caught and its content will be tested)
+        /// Test for Course_Adjust with invalid CourseType or CourseID that isn't exist(Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task Course_Adjust_New_Invalid_Type_Test()
+        public async Task Course_Adjust_Invalid_Input_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160001",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
+            await create_Course(testConstants.courseID, bobStub);
             var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = testConstants.courseID
             });
-            courseRet.CourseID.ShouldBe("100562160001");
+            courseRet.CourseID.ShouldBe(testConstants.courseID);
             courseRet.IsValid.ShouldBe(true);
             try
             {
-                var newCourse = courseRet;
+                var newCourse = courseRet.Clone();
                 newCourse.CourseType = 4;
+                await bobStub.Course_Adjust.SendAsync(newCourse);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("Course : input invalid!");
+            }
+            try
+            {
+                var newCourse = courseRet.Clone();
+                newCourse.CourseID = "100562160002";
+                await stub.Course_Adjust.SendAsync(newCourse);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("Course : content not found!");
+            }
+            try
+            {
+                var newCourse = courseRet.Clone();
+                newCourse.CourseID = "100582160001";
                 await stub.Course_Adjust.SendAsync(newCourse);
             }
             catch (Exception e)
@@ -1093,40 +1418,25 @@ namespace AElf.Contracts.CreditTransferContract
         /// Test for Course_Adjust from wrong address (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task Course_Adjust_Old_Invalid_Address_Test()
+        public async Task Course_Adjust_Invalid_Address_Test()
         {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160001",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
+            await create_Course(testConstants.courseID, bobStub);
             var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
             {
-                Value = "100562160001"
+                Value = testConstants.courseID
             });
-            courseRet.CourseID.ShouldBe("100562160001");
+            courseRet.CourseID.ShouldBe(testConstants.courseID);
             courseRet.IsValid.ShouldBe(true);
 
             try
@@ -1142,112 +1452,6 @@ namespace AElf.Contracts.CreditTransferContract
             }
             throw new Exception("should not success!");
         }
-        
-        
-        /// <summary>
-        /// Test for Course_Adjust with changing data that not exists
-        /// (Exception will be caught and its content will be tested)
-        /// </summary>
-        [Fact]
-        public async Task Course_Adjust_Old_Nonexistent_Course_Test()
-        {
-             
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160001",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
-            var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
-            {
-                Value = "100562160001"
-            });
-            courseRet.CourseID.ShouldBe("100562160001");
-            courseRet.IsValid.ShouldBe(true);
-            
-            try
-            {
-                var newCourse = courseRet;
-                newCourse.CourseID = "100562160002";
-                await stub.Course_Adjust.SendAsync(newCourse);
-            }
-            catch (Exception e)
-            {
-                e.Message.ShouldContain("Course : content not found!");
-                return;
-            }
-            throw new Exception("should not success!");
-        }
-        
-        
-        /// <summary>
-        /// Test for Course_Adjust with changing data whose school isn't exists
-        /// (Exception will be caught and its content will be tested)
-        /// </summary>
-        [Fact]
-        public async Task Course_Adjust_Old_Nonexistent_School_Test()
-        {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-
-            await stub.School_Register.SendAsync(new School
-            {
-                SchoolID = "10056",
-                SchoolAddress = address,
-                Rating = 0
-            });
-            var schoolRet = await stub.get_School.CallAsync(new StringValue
-            {
-                Value = "10056"
-            });
-            schoolRet.SchoolAddress.ShouldBe(address);
-
-            await stub.Course_Create.SendAsync(new CourseInfo
-            {
-                CourseID = "100562160001",
-                IsCompulsory = true,
-                CourseType = 0,
-                IsValid = true
-            });
-            var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
-            {
-                Value = "100562160001"
-            });
-            courseRet.CourseID.ShouldBe("100562160001");
-            courseRet.IsValid.ShouldBe(true);
-            
-            try
-            {
-                var newCourse = courseRet;
-                newCourse.CourseID = "100572160001";
-                await stub.Course_Adjust.SendAsync(newCourse);
-            }
-            catch (Exception e)
-            {
-                e.Message.ShouldContain("Course : input invalid!");
-                return;
-            }
-            throw new Exception("should not success!");
-        }
-        
     }
     
     public class CourseRecordTests : CreditTransferContractTestBase
@@ -1278,6 +1482,23 @@ namespace AElf.Contracts.CreditTransferContract
                 Value = schoolID
             });
             schoolRet.SchoolAddress.ShouldBe(address);
+        }
+        
+        /// <summary>
+        /// Method for creating School with parameters
+        /// </summary>
+        private async Task create_Teacher(
+            string teacherID, Address address,
+            CreditTransferContractContainer.CreditTransferContractStub stub
+        )
+        {
+            await stub.Teacher_Register.SendAsync(new Teacher
+            {
+                TeacherID = teacherID,
+                TeacherAddress = address,
+            });
+            var schoolRet = await stub.get_Teacher.CallAsync(address);
+            schoolRet.Value.ShouldBe(teacherID);
         }
         
         /// <summary>
@@ -1328,14 +1549,17 @@ namespace AElf.Contracts.CreditTransferContract
         /// Method for selecting course with parameters to construct CourseRecord
         /// </summary>
         private async Task select_SR(
-            string schoolID, string studentID, string courseID, Address address,
-            CreditTransferContractContainer.CreditTransferContractStub stub)
+            string schoolID, string studentID, string courseID, string teacherID,
+            Address schoolAddress, Address teacherAdress,
+            CreditTransferContractContainer.CreditTransferContractStub stub,
+            CreditTransferContractContainer.CreditTransferContractStub teacherStub)
         {
-            await create_School(schoolID, address, stub);
-            await create_SRT(studentID, stub);
-            await create_Course(courseID, stub);
+            await create_School(schoolID, schoolAddress, stub);
+            await create_Teacher(teacherID, teacherAdress, stub);
+            await create_SRT(studentID, teacherStub);
+            await create_Course(courseID, teacherStub);
             
-            await stub.SR_Select.SendAsync(new SRUploadInput
+            await teacherStub.SR_Select.SendAsync(new SRUploadInput
             {
                 CourseID = courseID,
                 StudentID = studentID,
@@ -1352,9 +1576,9 @@ namespace AElf.Contracts.CreditTransferContract
         /// </summary>
         private async Task drop_SR(
             string studentID, string courseID,
-            CreditTransferContractContainer.CreditTransferContractStub stub)
+            CreditTransferContractContainer.CreditTransferContractStub teacherStub)
         {
-            await stub.SR_Drop.SendAsync(new SRDropInput
+            await teacherStub.SR_Drop.SendAsync(new SRDropInput
             {
                 CourseID = courseID,
                 StudentID = studentID
@@ -1366,9 +1590,9 @@ namespace AElf.Contracts.CreditTransferContract
         /// </summary>
         private async Task adjust_SR(
             string studentID, string courseID, bool state, ulong GPA, ulong score,
-            CreditTransferContractContainer.CreditTransferContractStub stub)
+            CreditTransferContractContainer.CreditTransferContractStub teacherStub)
         {
-            await stub.SR_Adjust.SendAsync(new SRModifyInput
+            await teacherStub.SR_Adjust.SendAsync(new SRModifyInput
             {
                 CourseID = courseID,
                 StudentID = studentID,
@@ -1384,26 +1608,61 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Select_Success_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
         }
         
+        /// <summary>
+        /// Test for SR_Select with good input
+        /// </summary>
+        [Fact]
+        public async Task SR_Select_Repeated_Input_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
+
+            try
+            {
+                await bobStub.SR_Select.SendAsync(new SRUploadInput
+                {
+                    CourseID = testConstants.courseID,
+                    StudentID = testConstants.studentID,
+                    Protocol = new Protocol
+                    {
+                        ProtoID = testConstants.courseID
+                    },
+                    Note = "select lesson"
+                });
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("CourseRecord : content have already existed!");
+            }
+            
+        }
         /// <summary>
         /// Test for SR_Select with invalid StudentID or CourseID
         /// (Exception will be caught and its content will be tested)
@@ -1411,27 +1670,25 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Select_Invalid_Input_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
             
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
-            
-            await create_School(schoolID, address, stub);
-            await create_SRT(studentID, stub);
-            await create_Course(courseID, stub);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            await create_SRT(testConstants.studentID, bobStub);
+            await create_Course(testConstants.courseID, bobStub);
             
             try
             {
-                await stub.SR_Select.SendAsync(new SRUploadInput
+                await bobStub.SR_Select.SendAsync(new SRUploadInput
                 {
-                    CourseID = courseID,
+                    CourseID = testConstants.courseID,
                     StudentID = "100563018216283",
                     Protocol = new Protocol
                     {
-                        ProtoID = courseID
+                        ProtoID = testConstants.courseID
                     },
                     Note = "select lesson"
                 });
@@ -1446,10 +1703,10 @@ namespace AElf.Contracts.CreditTransferContract
                 await stub.SR_Select.SendAsync(new SRUploadInput
                 {
                     CourseID = "100562160002",
-                    StudentID = studentID,
+                    StudentID = testConstants.studentID,
                     Protocol = new Protocol
                     {
-                        ProtoID = courseID
+                        ProtoID = testConstants.courseID
                     },
                     Note = "select lesson"
                 });
@@ -1470,30 +1727,28 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Select_Invalid_Address_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
             
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            await create_SRT(testConstants.studentID, bobStub);
+            await create_Course(testConstants.courseID, bobStub);
             
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
-
-            await create_School(schoolID, address, stub);
-            await create_SRT(studentID, stub);
-            await create_Course(courseID, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
 
             try
             {
                 await aliceStub.SR_Select.SendAsync(new SRUploadInput
                 {
-                    CourseID = courseID,
-                    StudentID = studentID,
+                    CourseID = testConstants.courseID,
+                    StudentID = testConstants.studentID,
                     Protocol = new Protocol
                     {
-                        ProtoID = courseID
+                        ProtoID = testConstants.courseID
                     },
                     Note = "select lesson"
                 });
@@ -1513,32 +1768,32 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Drop_Success_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
 
-            await drop_SR(studentID, courseID, stub);
+            await drop_SR(testConstants.studentID, testConstants.courseID, bobStub);
             
             try
             {
                 var SR_Result1 = await stub.get_CourseRecord.CallAsync(new StringValue
                 {
-                    Value = courseID + studentID
+                    Value = testConstants.courseID + testConstants.studentID
                 });
             }
             catch (Exception e)
@@ -1557,31 +1812,31 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Drop_Invalid_Address_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
             
             try
             {
-                await drop_SR(studentID, courseID, aliceStub);
+                await drop_SR(testConstants.studentID, testConstants.courseID, aliceStub);
             }
             catch (Exception e)
             {
@@ -1599,28 +1854,31 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Drop_Invalid_Input_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
-
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
             
             try
             {
-                await drop_SR("100563018216283", courseID, stub);
+                await drop_SR("100563018216283", testConstants.courseID, bobStub);
             }
             catch (Exception e)
             {
@@ -1629,7 +1887,7 @@ namespace AElf.Contracts.CreditTransferContract
 
             try
             {
-                await drop_SR(studentID, "100562160002", stub);
+                await drop_SR(testConstants.studentID, "100562160002", stub);
             }
             catch (Exception e)
             {
@@ -1645,34 +1903,37 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Adjust_Success_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
 
-            await adjust_SR(studentID, courseID, true, 4_00, 100_00, stub);
+            await adjust_SR(testConstants.studentID, testConstants.courseID, true, 4_00, 100_00, bobStub);
             
             var SR_Result1 = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result1.CourseID.ShouldBe(courseID);
-            SR_Result1.StudentID.ShouldBe(studentID);
+            SR_Result1.CourseID.ShouldBe(testConstants.courseID);
+            SR_Result1.StudentID.ShouldBe(testConstants.studentID);
             SR_Result1.GPA.ToString().ShouldBe("400");
             SR_Result1.Score.ToString().ShouldBe("10000");
         }
@@ -1682,29 +1943,32 @@ namespace AElf.Contracts.CreditTransferContract
         /// (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task SR_Adjust_New_Invalid_Input_Test()
+        public async Task SR_Adjust_Invalid_Input_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
             try
             {
-                await adjust_SR(studentID, courseID, true, 4_01, 100_00, stub);
+                await adjust_SR(testConstants.studentID, testConstants.courseID, true, 4_01, 100_00, bobStub);
             }
             catch (Exception e)
             {
@@ -1713,7 +1977,7 @@ namespace AElf.Contracts.CreditTransferContract
             
             try
             {
-                await adjust_SR("100563018216283", courseID, true, 4_01, 100_00, stub);
+                await adjust_SR("100563018216283", testConstants.courseID, true, 4_01, 100_00, bobStub);
             }
             catch (Exception e)
             {
@@ -1722,7 +1986,7 @@ namespace AElf.Contracts.CreditTransferContract
             
             try
             {
-                await adjust_SR(studentID, "100562160002", true, 4_01, 100_00, stub);
+                await adjust_SR(testConstants.studentID, "100562160002", true, 4_01, 100_00, bobStub);
             }
             catch (Exception e)
             {
@@ -1731,7 +1995,7 @@ namespace AElf.Contracts.CreditTransferContract
             
             try
             {
-                await adjust_SR(studentID, courseID, true, 4_00, 100_01, stub);
+                await adjust_SR(testConstants.studentID, testConstants.courseID, true, 4_00, 100_01, bobStub);
             }
             catch (Exception e)
             {
@@ -1741,37 +2005,37 @@ namespace AElf.Contracts.CreditTransferContract
             throw new Exception("should not success!");
         } 
         
-         /// <summary>
+        /// <summary>
         /// Test for SR_Adjust from wrong address
         /// (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task SR_Adjust_Old_Invalid_Address_Test()
+        public async Task SR_Adjust_Invalid_Address_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
             try
             {
-                await adjust_SR(studentID, courseID, true, 4_00, 100_00, aliceStub);
+                await adjust_SR(testConstants.studentID, testConstants.courseID, true, 4_00, 100_00, aliceStub);
             }
             catch (Exception e)
             {
@@ -1787,32 +2051,35 @@ namespace AElf.Contracts.CreditTransferContract
         /// (Exception will be caught and its content will be tested)
         /// </summary>
         [Fact]
-        public async Task SR_Adjust_Old_Blocked_Change_Test()
+        public async Task SR_Adjust_Blocked_Change_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
             
-            await adjust_SR(studentID, courseID, true, 4_00, 100_00, stub);
+            await adjust_SR(testConstants.studentID, testConstants.courseID, true, 4_00, 100_00, bobStub);
             
             try
             {
-                await adjust_SR(studentID, courseID, true, 3_60, 89_00, stub);
+                await adjust_SR(testConstants.studentID, testConstants.courseID, true, 3_60, 89_00, bobStub);
             }
             catch (Exception e)
             {
@@ -1828,25 +2095,25 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Search_Success_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
-            var SR_Result = await aliceStub.get_CourseRecord.CallAsync(new StringValue
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
+            
+            var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
             {
-                Value = courseID + studentID
+                Value = testConstants.courseID + testConstants.studentID
             });
             
-            SR_Result.CourseID.ShouldBe(courseID);
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
         }
@@ -1858,23 +2125,24 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Search_Not_Found_Test()
         {
-            var keyPair = SampleAccount.Accounts.First().KeyPair;
-            var address = Address.FromPublicKey(keyPair.PublicKey);
-            var stub = GetCreditTransferContractStub(keyPair);
-            
-            var alice = SampleAccount.Accounts.Reverse().First().KeyPair;
-            var aliceStub = GetCreditTransferContractStub(alice);
-            
-            var schoolID = "10056";
-            var studentID = "100563018216282";
-            var courseID = "100562160001";
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
 
-            await select_SR(schoolID, studentID, courseID, address, stub);
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            
+            await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
+                testConstants.courseID, testConstants.bobTeacherID,
+                testConstants.address, testConstants.bobAddress,
+                stub,bobStub);
+            
             try
             {
                 var SR_Result = await aliceStub.get_CourseRecord.CallAsync(new StringValue
                 {
-                    Value = courseID + "100563018216283"
+                    Value = testConstants.courseID + "100563018216283"
                 });
             }
             catch (Exception e)
@@ -1886,7 +2154,7 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 var SR_Result1 = await aliceStub.get_CourseRecord.CallAsync(new StringValue
                 {
-                    Value = "100562160002" + studentID
+                    Value = "100562160002" + testConstants.studentID
                 });
             }
             catch (Exception e)
@@ -1897,5 +2165,6 @@ namespace AElf.Contracts.CreditTransferContract
             
             throw new Exception("should not success!");
         }
+        
     }
 }
