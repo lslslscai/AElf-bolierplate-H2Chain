@@ -24,7 +24,7 @@
     "webpack-dev-server": "^3.7.2"
   },
   "scripts": {
-    "start": "webpack-dev-server --progress --colors --display-chunks --watch --config ./webpack.config.js"
+    "start": "webpack-dev-server --openssl-legacy-provider --progress --colors --display-chunks --watch --config ./webpack.config.js "
   },
   "author": "zmh3788",
   "license": "ISC",
