@@ -32,8 +32,8 @@ namespace AElf.Boilerplate.MainChain
             services.AddTransient<IContractDeploymentListProvider, MainChainContractDeploymentListProvider>();
             services.AddTransient<IGenesisSmartContractDtoProvider, MainChainGenesisSmartContractDtoProvider>();
 
-            services.AddKeyValueDbContext<BlockchainKeyValueDbContext>(p => p.UseInMemoryDatabase());
-            services.AddKeyValueDbContext<StateKeyValueDbContext>(p => p.UseInMemoryDatabase());
+            services.AddKeyValueDbContext<BlockchainKeyValueDbContext>(p => p.UseRedisDatabase());
+            services.AddKeyValueDbContext<StateKeyValueDbContext>(p => p.UseRedisDatabase());
             
             Configure<ContractOptions>(o => o.ContractDeploymentAuthorityRequired = false);
         }

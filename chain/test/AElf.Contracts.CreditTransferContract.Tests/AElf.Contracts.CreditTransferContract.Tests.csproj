@@ -34,6 +34,9 @@
     <ContractStub Include="..\..\protobuf\credit_transfer_contract.proto">
       <Link>Protobuf\Proto\credit_transfer_contract.proto</Link>
     </ContractStub>
+    <ContractStub Include="..\..\protobuf\token_contract.proto">
+      <Link>Protobuf\Proto\token_contract.proto</Link>
+    </ContractStub>
   </ItemGroup>
 
   <ItemGroup>

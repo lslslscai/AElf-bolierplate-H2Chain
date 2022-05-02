@@ -4,6 +4,7 @@ import "aelf/core.proto";
 import "aelf/options.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
 option csharp_namespace = "AElf.Contracts.CreditTransferContract";
 
 service CreditTransferContract {
@@ -29,7 +30,7 @@ service CreditTransferContract {
     rpc SR_Select(SRUploadInput) returns (google.protobuf.Empty) {}
     rpc SR_Drop(SRDropInput) returns (google.protobuf.Empty) {}
     rpc SR_Adjust(SRModifyInput) returns (google.protobuf.Empty) {}
-    
+
     //views
     rpc get_SRT(google.protobuf.StringValue) returns (SRT) {
         option (aelf.is_view) = true;
@@ -50,16 +51,21 @@ service CreditTransferContract {
     rpc get_Teacher(aelf.Address) returns (google.protobuf.StringValue) {
         option (aelf.is_view) = true;
     }
+    rpc get_AdminAddress(google.protobuf.Empty) returns (aelf.Address) {
+        option (aelf.is_view) = true;
+    }
 }
 /*
     1. all float number is presented by integer. the saved number are multiplied by 100 to represent two decimal places
 */
 //user data
+
 message CourseInfo {
     string courseID = 1;//course's ID
     bool isCompulsory = 2;//if the course is compulsory, it will be true
     uint64 courseType = 3;//used to identify courses' type (will be defined in constants)
-    bool isValid = 4;//show if the course is valid
+    uint64 credit = 4;//course's credit
+    bool isValid = 5;//show if the course is valid
 }
 
 message CourseRecord {
@@ -73,7 +79,12 @@ message CourseRecord {
 }
 
 message Protocol {
-    string protoID = 1;//protocol's ID
+    google.protobuf.Timestamp timestamp = 1;
+    string startDate = 2;
+    string testDate = 3;
+    string projectDate = 4;
+    uint32 rateOfTest = 5;
+    uint32 rateOfProject = 6;
 }
 
 message SRT {

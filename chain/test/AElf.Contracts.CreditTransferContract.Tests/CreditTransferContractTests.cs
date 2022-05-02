@@ -3,8 +3,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using AElf.ContractTestBase.ContractTestKit;
 using AElf.Cryptography.ECDSA;
+using AElf.Kernel.Token;
 using AElf.Types;
-using Google.Protobuf;
+using AElf.Contracts.MultiToken;
 using Google.Protobuf.WellKnownTypes;
 using Shouldly;
 using Xunit;
@@ -50,7 +51,8 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task School_Register_Success_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
-
+            await stub.Initialize.SendAsync(new Empty());
+            
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -64,6 +66,12 @@ namespace AElf.Contracts.CreditTransferContract
             });
             
             schoolRet.SchoolAddress.ShouldBe(testConstants.address);
+            await stub.School_Register.SendAsync(new School
+            {
+                SchoolID = testConstants.bobSchoolID,
+                SchoolAddress = testConstants.address,
+                Rating = 0
+            });
         }
         
         /// <summary>
@@ -74,6 +82,7 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task School_Register_Repeated_Input_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            await stub.Initialize.SendAsync(new Empty());
 
             await stub.School_Register.SendAsync(new School
             {
@@ -114,6 +123,7 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task School_Adjust_Success_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            await stub.Initialize.SendAsync(new Empty());
 
             await stub.School_Register.SendAsync(new School
             {
@@ -143,22 +153,16 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task School_Register_Invalid_Address_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            await stub.Initialize.SendAsync(new Empty());
 
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
-            try
+            await aliceStub.School_Register.SendAsync(new School
             {
-                await aliceStub.School_Register.SendAsync(new School
-                {
-                    SchoolID = testConstants.bobSchoolID,
-                    SchoolAddress = testConstants.address,
-                    Rating = 0
-                });
-            }
-            catch (Exception e)
-            {
-                e.Message.ShouldContain("School : sender identification failed!");
-            }
-            
+                SchoolID = testConstants.bobSchoolID, 
+                SchoolAddress = testConstants.address, 
+                Rating = 0
+            });
+
             try
             {
                 await stub.School_Register.SendAsync(new School
@@ -183,7 +187,8 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task School_Register_Invalid_ID_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
-            
+            await stub.Initialize.SendAsync(new Empty());
+
             try
             {
                 await stub.School_Register.SendAsync(new School
@@ -208,6 +213,7 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task School_Search_Not_Found_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            await stub.Initialize.SendAsync(new Empty());
 
             await stub.School_Register.SendAsync(new School
             {
@@ -240,7 +246,10 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
-            
+            await stub.Initialize.SendAsync(new Empty());
+
+            var addr = await aliceStub.get_AdminAddress.CallAsync(new Empty());
+            addr.ShouldBe(testConstants.address);
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -273,7 +282,8 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-            
+            await stub.Initialize.SendAsync(new Empty());
+            await stub.Initialize.SendAsync(new Empty());
             //bob所属学校创建bob教师信息，成功
             await stub.School_Register.SendAsync(new School
             {
@@ -301,7 +311,8 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub.Initialize.SendAsync(new Empty());
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -346,7 +357,8 @@ namespace AElf.Contracts.CreditTransferContract
         public async Task Teacher_Register_Invalid_Input_Test()
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
-            
+            await stub.Initialize.SendAsync(new Empty());
+
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -381,7 +393,7 @@ namespace AElf.Contracts.CreditTransferContract
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
-            
+            await stub.Initialize.SendAsync(new Empty());            
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -425,7 +437,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-            
+            await stub.Initialize.SendAsync(new Empty());
             //bob所属学校创建bob教师信息，成功
             await stub.School_Register.SendAsync(new School
             {
@@ -452,7 +464,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-            
+            await stub.Initialize.SendAsync(new Empty());
             //bob所属学校创建bob教师信息，成功
             await stub.School_Register.SendAsync(new School
             {
@@ -488,7 +500,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-            
+            await stub.Initialize.SendAsync(new Empty());
             //bob所属学校创建bob教师信息，成功
             await stub.School_Register.SendAsync(new School
             {
@@ -525,6 +537,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            await stub.Initialize.SendAsync(new Empty());
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -582,7 +595,7 @@ namespace AElf.Contracts.CreditTransferContract
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
-            
+            await stub.Initialize.SendAsync(new Empty());
             await stub.School_Register.SendAsync(new School
             {
                 SchoolID = testConstants.bobSchoolID,
@@ -714,7 +727,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             await create_SRT(testConstants.studentID, bobStub);
@@ -729,7 +742,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             await create_SRT(testConstants.studentID, bobStub);
@@ -754,7 +767,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             await create_SRT(testConstants.studentID, bobStub);
@@ -778,7 +791,7 @@ namespace AElf.Contracts.CreditTransferContract
         {
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
 
@@ -805,7 +818,11 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var addr = await stub1.get_AdminAddress.CallAsync(new Empty());
+            addr.ShouldBe(testConstants.address);
+            
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -835,7 +852,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -868,7 +886,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -890,7 +909,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -955,7 +975,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -994,7 +1015,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1091,7 +1113,8 @@ namespace AElf.Contracts.CreditTransferContract
                 CourseID = courseID,
                 IsCompulsory = true,
                 CourseType = 0,
-                IsValid = true
+                IsValid = true,
+                Credit = 4
             });
             var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
             {
@@ -1111,7 +1134,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1132,7 +1156,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1163,7 +1188,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1210,7 +1236,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1241,7 +1268,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1255,7 +1283,8 @@ namespace AElf.Contracts.CreditTransferContract
                     CourseID = testConstants.courseID,
                     IsCompulsory = true,
                     CourseType = 4,
-                    IsValid = true
+                    IsValid = true,
+                    Credit = 4
                 });
             }
             catch (Exception e)
@@ -1276,7 +1305,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1307,7 +1337,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1340,7 +1371,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1366,7 +1398,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1424,7 +1457,8 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             
@@ -1535,7 +1569,8 @@ namespace AElf.Contracts.CreditTransferContract
                 CourseID = courseID,
                 IsCompulsory = true,
                 CourseType = 0,
-                IsValid = true
+                IsValid = true,
+                Credit = 4
             });
             var courseRet = await stub.get_CourseInfo.CallAsync(new StringValue
             {
@@ -1550,7 +1585,7 @@ namespace AElf.Contracts.CreditTransferContract
         /// </summary>
         private async Task select_SR(
             string schoolID, string studentID, string courseID, string teacherID,
-            Address schoolAddress, Address teacherAdress,
+            Address schoolAddress, Address teacherAdress, Protocol SRProtocol,
             CreditTransferContractContainer.CreditTransferContractStub stub,
             CreditTransferContractContainer.CreditTransferContractStub teacherStub)
         {
@@ -1563,10 +1598,7 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 CourseID = courseID,
                 StudentID = studentID,
-                Protocol = new Protocol
-                {
-                    ProtoID = courseID
-                },
+                Protocol = SRProtocol,
                 Note = "select lesson"
             });
         }
@@ -1612,10 +1644,19 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress, proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -1627,7 +1668,72 @@ namespace AElf.Contracts.CreditTransferContract
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
         }
-        
+
+        /// <summary>
+        /// Test for SR_Select cross schools
+        /// </summary>
+        [Fact]
+        public async Task SR_Select_Cross_School_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
+
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_SRT("100573018216282", aliceStub);
+            await create_Course(testConstants.courseID, bobStub);
+
+            await bobStub.SR_Select.SendAsync(new SRUploadInput
+            {
+                CourseID = testConstants.courseID,
+                StudentID = "100573018216282",
+                Protocol = proto,
+                Note = "select lesson"
+            });
+
+            var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
+            {
+                Value = testConstants.courseID + "100573018216282"
+            });
+            
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
+            SR_Result.State.ShouldBeFalse();
+            SR_Result.Note.ShouldBe("select lesson");
+            
+            try
+            {
+                //老师尝试修改外校的选课信息，会因为身份而失败（注意，不是因为已经存在数据才错误，身份检查在重复检查前）
+                await aliceStub.SR_Select.SendAsync(new SRUploadInput
+                {
+                    CourseID = testConstants.courseID,
+                    StudentID = "100573018216282",
+                    Protocol = proto,
+                    Note = "select lesson"
+                });
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("CourseRecord : sender identification failed!");
+                return;
+            }
+            throw new Exception("should not success!");
+        }
+
         /// <summary>
         /// Test for SR_Select with good input
         /// </summary>
@@ -1638,10 +1744,19 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress,proto,
                 stub,bobStub);
 
             try
@@ -1650,10 +1765,7 @@ namespace AElf.Contracts.CreditTransferContract
                 {
                     CourseID = testConstants.courseID,
                     StudentID = testConstants.studentID,
-                    Protocol = new Protocol
-                    {
-                        ProtoID = testConstants.courseID
-                    },
+                    Protocol = proto,
                     Note = "select lesson"
                 });
             }
@@ -1674,7 +1786,16 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-            
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             await create_SRT(testConstants.studentID, bobStub);
@@ -1686,10 +1807,7 @@ namespace AElf.Contracts.CreditTransferContract
                 {
                     CourseID = testConstants.courseID,
                     StudentID = "100563018216283",
-                    Protocol = new Protocol
-                    {
-                        ProtoID = testConstants.courseID
-                    },
+                    Protocol = proto,
                     Note = "select lesson"
                 });
             }
@@ -1704,10 +1822,7 @@ namespace AElf.Contracts.CreditTransferContract
                 {
                     CourseID = "100562160002",
                     StudentID = testConstants.studentID,
-                    Protocol = new Protocol
-                    {
-                        ProtoID = testConstants.courseID
-                    },
+                    Protocol = proto,
                     Note = "select lesson"
                 });
             }
@@ -1731,7 +1846,16 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-            
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.bobSchoolID, testConstants.address, stub);
             await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
             await create_SRT(testConstants.studentID, bobStub);
@@ -1746,10 +1870,7 @@ namespace AElf.Contracts.CreditTransferContract
                 {
                     CourseID = testConstants.courseID,
                     StudentID = testConstants.studentID,
-                    Protocol = new Protocol
-                    {
-                        ProtoID = testConstants.courseID
-                    },
+                    Protocol = proto,
                     Note = "select lesson"
                 });
             }
@@ -1772,10 +1893,19 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress, proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -1806,6 +1936,79 @@ namespace AElf.Contracts.CreditTransferContract
         }
         
         /// <summary>
+        /// Test for SR_Adjust cross schools
+        /// </summary>
+        [Fact]
+        public async Task SR_Drop_Cross_School_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
+
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_SRT("100573018216282", aliceStub);
+            await create_Course(testConstants.courseID, bobStub);
+
+            await bobStub.SR_Select.SendAsync(new SRUploadInput
+            {
+                CourseID = testConstants.courseID,
+                StudentID = "100573018216282",
+                Protocol = proto,
+                Note = "select lesson"
+            });
+
+            var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
+            {
+                Value = testConstants.courseID + "100573018216282"
+            });
+            
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
+            SR_Result.State.ShouldBeFalse();
+            SR_Result.Note.ShouldBe("select lesson");
+            
+            try
+            {
+                //老师尝试删除学生在外校的选课信息，失败
+                await drop_SR("100573018216282", testConstants.courseID, aliceStub);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("CourseRecord : sender identification failed!");
+            }
+            
+            await drop_SR("100573018216282", testConstants.courseID, bobStub);
+            try
+            {
+                var SR_Result1 = await stub.get_CourseRecord.CallAsync(new StringValue
+                {
+                    Value = testConstants.courseID + "100573018216282"
+                });
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("CourseRecord : content not found!");
+                return;
+            }
+            
+            throw new Exception("should not success!");
+        }
+        
+        /// <summary>
         /// Test for SR_Drop from wrong address
         /// (Exception will be caught and its content will be tested)
         /// </summary>
@@ -1816,13 +2019,22 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress, proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -1858,13 +2070,22 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress, proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -1903,17 +2124,33 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Adjust_Success_Test()
         {
+            
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            var tokenContractStub =
+                GetTester<TokenContractContainer.TokenContractStub>(TokenContractAddress, testConstants.keyPair1);
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
+            
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var addr = await stub1.get_AdminAddress.CallAsync(new Empty());
+            addr.ShouldBe(testConstants.address);
+            _testOutputHelper.WriteLine(DAppContractAddress.ToString());
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress, proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -1924,18 +2161,90 @@ namespace AElf.Contracts.CreditTransferContract
             SR_Result.CourseID.ShouldBe(testConstants.courseID);
             SR_Result.State.ShouldBeFalse();
             SR_Result.Note.ShouldBe("select lesson");
-
             await adjust_SR(testConstants.studentID, testConstants.courseID, true, 4_00, 100_00, bobStub);
-            
+
             var SR_Result1 = await stub.get_CourseRecord.CallAsync(new StringValue
             {
                 Value = testConstants.courseID + testConstants.studentID
             });
-            
+            var schoolRet = await stub.get_School.CallAsync(new StringValue {Value = testConstants.bobSchoolID});
+            schoolRet.Rating.ToString().ShouldBe("400000");
             SR_Result1.CourseID.ShouldBe(testConstants.courseID);
             SR_Result1.StudentID.ShouldBe(testConstants.studentID);
             SR_Result1.GPA.ToString().ShouldBe("400");
             SR_Result1.Score.ToString().ShouldBe("10000");
+
+        }
+        
+        /// <summary>
+        /// Test for SR_Adjust cross schools
+        /// </summary>
+        [Fact]
+        public async Task SR_Adjust_Cross_School_Test()
+        {
+            var stub = GetCreditTransferContractStub(testConstants.keyPair);
+            var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
+            var aliceStub = GetCreditTransferContractStub(testConstants.alice);
+            var bobStub = GetCreditTransferContractStub(testConstants.bob);
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
+            await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
+            await create_School(testConstants.bobSchoolID, testConstants.address, stub);
+            await create_Teacher(testConstants.bobTeacherID, testConstants.bobAddress, stub);
+            
+            await create_SRT("100573018216282", aliceStub);
+            await create_Course(testConstants.courseID, bobStub);
+
+            await bobStub.SR_Select.SendAsync(new SRUploadInput
+            {
+                CourseID = testConstants.courseID,
+                StudentID = "100573018216282",
+                Protocol = proto,
+                Note = "select lesson"
+            });
+
+            var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
+            {
+                Value = testConstants.courseID + "100573018216282"
+            });
+            
+            SR_Result.CourseID.ShouldBe(testConstants.courseID);
+            SR_Result.State.ShouldBeFalse();
+            SR_Result.Note.ShouldBe("select lesson");
+            
+            await adjust_SR("100573018216282", testConstants.courseID, true, 4_00, 100_00, bobStub);
+            
+            var SR_Result1 = await stub.get_CourseRecord.CallAsync(new StringValue
+            {
+                Value = testConstants.courseID + "100573018216282"
+            });
+            
+            SR_Result1.CourseID.ShouldBe(testConstants.courseID);
+            SR_Result1.StudentID.ShouldBe("100573018216282");
+            SR_Result1.GPA.ToString().ShouldBe("400");
+            SR_Result1.Score.ToString().ShouldBe("10000");
+            var schoolRet = await stub.get_School.CallAsync(new StringValue {Value = testConstants.aliceSchoolID});
+            schoolRet.Rating.ToString().ShouldBe("400000");
+            try
+            {
+                //老师尝试修改外校的选课信息，失败
+                await adjust_SR("100573018216282", testConstants.courseID, true, 4_00, 100_00, aliceStub);
+            }
+            catch (Exception e)
+            {
+                e.Message.ShouldContain("CourseRecord : sender identification failed!");
+                return;
+            }
+            throw new Exception("should not success!");
         }
         
         /// <summary>
@@ -1949,13 +2258,22 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress, proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -2016,13 +2334,22 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress,proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -2053,17 +2380,29 @@ namespace AElf.Contracts.CreditTransferContract
         [Fact]
         public async Task SR_Adjust_Blocked_Change_Test()
         {
+            
             var stub = GetCreditTransferContractStub(testConstants.keyPair);
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress,proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -2099,13 +2438,22 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress,proto,
                 stub,bobStub);
             
             var SR_Result = await stub.get_CourseRecord.CallAsync(new StringValue
@@ -2129,13 +2477,22 @@ namespace AElf.Contracts.CreditTransferContract
             var stub1 = GetCreditTransferContractStub(testConstants.keyPair1);
             var aliceStub = GetCreditTransferContractStub(testConstants.alice);
             var bobStub = GetCreditTransferContractStub(testConstants.bob);
-
+            await stub.Initialize.SendAsync(new Empty());
+            await stub1.Initialize.SendAsync(new Empty());
+            var proto = new Protocol
+            {
+                StartDate = "2022-03-01",
+                ProjectDate = "2022-06-20",
+                TestDate = "2022-06-20",
+                RateOfProject = 60,
+                RateOfTest = 30
+            };
             await create_School(testConstants.aliceSchoolID, testConstants.address1, stub1);
             await create_Teacher(testConstants.aliceTeacherID, testConstants.aliceAddress, stub1);
             
             await select_SR(testConstants.bobSchoolID, testConstants.studentID, 
                 testConstants.courseID, testConstants.bobTeacherID,
-                testConstants.address, testConstants.bobAddress,
+                testConstants.address, testConstants.bobAddress,proto,
                 stub,bobStub);
             
             try

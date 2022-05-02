@@ -1,5 +1,6 @@
 using AElf.Sdk.CSharp.State;
 using AElf.Types;
+using AElf.Contracts.MultiToken;
 using Google.Protobuf.WellKnownTypes;
 
 namespace AElf.Contracts.CreditTransferContract
@@ -10,6 +11,7 @@ namespace AElf.Contracts.CreditTransferContract
     public class CreditTransferContractState : ContractState
     {
         // user data.
+        public SingletonState<Address> adminAddress { get; set; }//系统是否初始化
         public MappedState<StringValue, SRT> SRT_Base { get; set; }//学号--SRT对应关系，快速查找SRT
         public MappedState<StringValue, School> School_Base { get; set; }//学校编号--学校对应关系，快速查找学校
         public MappedState<StringValue, CourseInfo> CourseInfo_Base { get; set; }//课程编号--课程对应关系，快速查找课程
@@ -19,6 +21,8 @@ namespace AElf.Contracts.CreditTransferContract
         
         // system data
         public BoolState Initialized { get; set; }//系统是否初始化
+        
+        internal TokenContractContainer.TokenContractReferenceState TokenContract { get; set; }
 
     }
 }

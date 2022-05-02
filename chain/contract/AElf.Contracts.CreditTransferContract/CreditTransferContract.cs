@@ -1,4 +1,7 @@
+using AElf.Contracts.MultiToken;
+using AElf.Sdk.CSharp;
 using AElf.Types;
+using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
 namespace AElf.Contracts.CreditTransferContract
@@ -20,10 +23,14 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 return new Empty();
             }
-            
+            State.TokenContract.Value =
+                Context.GetContractAddressByName(SmartContractConstants.TokenContractSystemName);
             //接入系统合约（暂时没有）
             
             State.Initialized.Value = true;
+            //第一个加入系统（启动区块链）的成为链管理者，他掌握着系统中全部的钱
+
+            State.adminAddress.Value = Context.Sender;
             return new Empty();
         }
         
@@ -219,6 +226,7 @@ namespace AElf.Contracts.CreditTransferContract
                 Value = input.CourseID + input.StudentID
             }] = newRecord;
             
+            
             return new Empty();
         }
         
@@ -305,7 +313,26 @@ namespace AElf.Contracts.CreditTransferContract
             {
                 Value = input.CourseID + input.StudentID
             }] = newRecord;
-            
+            var rate = input.GPA * State.CourseInfo_Base[new StringValue
+            {
+                Value = input.CourseID
+            }].Credit * CreditTransferContractConstants.INITIAL_RATING  / 400;
+            State.SRT_Base[new StringValue {Value = input.StudentID}].Rating += rate;
+            State.School_Base[new StringValue {Value = input.StudentID.Substring(0,5)}].Rating += rate;
+            if (State.adminAddress.Value != State.School_Base[new StringValue
+                {
+                    Value = input.StudentID.Substring(0, 5)
+                }].SchoolAddress)
+            {
+                State.TokenContract.TransferFrom.Send(new TransferFromInput
+                {
+                    Amount = long.Parse(rate.ToString()),
+                    Memo = "transfer",
+                    Symbol = Context.Variables.NativeSymbol,
+                    From = State.adminAddress.Value,
+                    To = State.School_Base[new StringValue {Value = input.StudentID.Substring(0,5)}].SchoolAddress
+                });
+            }
             return new Empty();
         }
 
@@ -361,7 +388,10 @@ namespace AElf.Contracts.CreditTransferContract
             );
             return school;
         }
-
+        public override Address get_AdminAddress(Empty input)
+        {
+            return State.adminAddress.Value;
+        }
         public override SRT get_SRT(StringValue input)
         {
             SRT student = State.SRT_Base[input];
@@ -479,15 +509,19 @@ namespace AElf.Contracts.CreditTransferContract
             School school = State.School_Base[new StringValue {Value = schoolID}];
             
             //检查发起者
-            if (school == null) return 4;//学校不存在，返回未找到
-            if (school.SchoolAddress != Context.Sender)//若不是学校账户发起的，需要检查是不是教师
+            if (mode != 3)//如果不为只读模式，才需要检查发起者
             {
-                if (State.Teacher_Base[Context.Sender] == null)
-                    return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
-                string teacherID = State.Teacher_Base[Context.Sender].Value;
-                if (mode != 3 && teacherID.Substring(0,5) != schoolID) 
-                    return 1;//教师试图增改数据，但他并不属于目标学校，返回发起者身份错误
+                if (school == null) return 4;//学校不存在，返回未找到
+                if (school.SchoolAddress != Context.Sender)//若不是学校账户发起的，需要检查是不是教师
+                {
+                    if (State.Teacher_Base[Context.Sender] == null)
+                        return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
+                    string teacherID = State.Teacher_Base[Context.Sender].Value;
+                    if (teacherID.Substring(0,5) != schoolID) 
+                        return 1;//教师试图增改数据，但他并不属于目标学校，返回发起者身份错误
+                }
             }
+            
             
 
             //检查state
@@ -522,15 +556,20 @@ namespace AElf.Contracts.CreditTransferContract
                 return (mode == 1 || mode == 3) ? 102 : 2;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
             
             //检查发起者
-            if (school == null) return 2;//学校不存在，返回输入错误
-            if (school.SchoolAddress != Context.Sender)//若不是学校账户发起的，需要检查是不是教师
+            if (mode != 3)
             {
-                if (State.Teacher_Base[Context.Sender] == null)
-                    return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
-                string teacherID = State.Teacher_Base[Context.Sender].Value;
-                if (mode != 3 && teacherID.Substring(0,5) != schoolID) 
-                    return 1;//教师试图增改数据，但他并不属于目标学校，返回发起者身份错误
+                if (school == null) return 2;//学校不存在，返回输入错误
+                if (school.SchoolAddress != Context.Sender 
+                    && Context.Sender != State.adminAddress.Value)//若不是本学校账户发起，且不是超级管理员，需要检查是不是教师
+                {
+                    if (State.Teacher_Base[Context.Sender] == null)
+                        return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
+                    string teacherID = State.Teacher_Base[Context.Sender].Value;
+                    if (teacherID.Substring(0,5) != schoolID) 
+                        return 1;//教师试图增改数据，但他并不属于目标学校，返回发起者身份错误
+                }
             }
+            
             
             if (mode == 0 && State.CourseInfo_Base[new StringValue { Value = input.CourseID }] != null)
                 return 5;//课程信息已经存在，不可重复添加
@@ -556,8 +595,8 @@ namespace AElf.Contracts.CreditTransferContract
                 return (mode == 1 || mode == 3) ? 102 : 2;//输入编号格式不对，返回输入错误；否则（提取数据有问题），返回系统数据错误
 
             //检查发起者
-            if (mode != 3 && input.SchoolAddress != Context.Sender)
-                return 1;//试图增改学校信息，但发起者并非学校系统账号，返回发起者身份错误
+            if (mode != 3 && Context.Sender != State.adminAddress.Value)
+                return 1;//试图增改学校信息，但发起者并非超级管理者，返回发起者身份错误
             
             //检查是否有重复数据
             if (mode == 0 && State.School_Base[new StringValue { Value = input.SchoolID }] != null)
@@ -576,8 +615,59 @@ namespace AElf.Contracts.CreditTransferContract
         {
             //先检查input是否为空
             if (input == null) return 2;//协议为空，返回输入错误
-
+            if (input.StartDate.Length != 10 
+                || input.TestDate.Length != 10 
+                || input.ProjectDate.Length != 10 )//日期格式有误，返回输入错误
+                return 2;
+            if (!date_Validation(input.StartDate, input.TestDate) ||
+                !date_Validation(input.StartDate, input.ProjectDate))
+                return 2;//日期有逻辑错误，返回输入错误
+            if (input.RateOfProject + input.RateOfTest >= 100) return 2;//成绩分配不合理，返回输入错误
             return 0;
+        }
+
+        private bool date_Validation(string start, string end)
+        {
+            int startYear = int.Parse(start.Split('-')[0]);
+            int startMonth = int.Parse(start.Split('-')[1]);
+            int startDay = int.Parse(start.Split('-')[2]);
+            
+            int endYear = int.Parse(end.Split('-')[0]);
+            int endMonth = int.Parse(end.Split('-')[1]);
+            int endDay = int.Parse(end.Split('-')[2]);
+
+            if (!date_check(start) || !date_check(end)) return false;//检查时间格式
+            
+            if (startYear > endYear//开始于2021，结束于2020（不可能）
+                || (startYear == endYear && startMonth > endMonth)//开始于2021.2，结束于2021.1（不可能）
+                || (startYear == endYear && startMonth == endMonth && startDay > endDay))//开始于2021.2.5，结束于2021.2.4（不可能）
+                return false;
+            return true;
+        }
+        
+        private bool date_check(string start)
+        {
+            int year = int.Parse(start.Split('-')[0]);
+            int month = int.Parse(start.Split('-')[1]);
+            int day = int.Parse(start.Split('-')[2]);
+            switch (month)
+            {
+                case 1: return day <= 31 && day >= 1;
+                case 2: 
+                    if(year % 4 != 0 || year % 400 != 0) return day <= 28 && day >= 1;
+                    else return day <= 29 && day >= 1;
+                case 3: return day <= 31 && day >= 1;
+                case 4: return day <= 30 && day >= 1;
+                case 5: return day <= 31 && day >= 1;
+                case 6: return day <= 30 && day >= 1;
+                case 7: return day <= 31 && day >= 1;
+                case 8: return day <= 31 && day >= 1;
+                case 9: return day <= 30 && day >= 1;
+                case 10: return day <= 31 && day >= 1;
+                case 11: return day <= 30 && day >= 1;
+                case 12: return day <= 31 && day >= 1;
+                default: return false;
+            }
         }
         
         /// <summary>
@@ -598,9 +688,13 @@ namespace AElf.Contracts.CreditTransferContract
             string schoolID = input.TeacherID.Substring(0, 5);
             School school = State.School_Base[new StringValue {Value = schoolID}];
             //检查发起者
-            if (school == null) return 2;//学校不存在，返回输入错误
-            if (mode != 3 && school.SchoolAddress != Context.Sender) 
-                return 1;//试图增改教师信息，但发起者并非学校系统账号，返回发起者身份错误
+            if (mode != 3)//如果不为只读模式，才需要检查
+            {
+                if (school == null) return 2;//学校不存在，返回输入错误
+                if (school.SchoolAddress != Context.Sender) 
+                    return 1;//试图增改教师信息，但发起者并非学校系统账号，返回发起者身份错误
+            }
+            
             
             if (mode == 0 && State.Teacher_Base[input.TeacherAddress] != null)
                 return 5;//用户已经存在，不可重复添加
@@ -619,12 +713,14 @@ namespace AElf.Contracts.CreditTransferContract
         private int SR_Validate(CourseRecord courseRecord, 
             CourseInfo course, SRT student, int mode, Protocol protocol = null)
         {
-            int SRMode = mode == 2 ? 2 : 1;//如果只读模式检查，则也以只读模式检查student和course，否则按照引用模式检查二者
+            int SRMode = mode == 0 ? 1 : mode;//创建模式下按照引用模式检查course，其他模式不变
+            
             //检查选课信息非空
             if(courseRecord == null)
                 return (mode == 1 || mode == 3) ? 4 : 2;//如果是创建模式返回输入错误，否则返回未找到
             
-            int SRT_val_ret = SRT_Validate(student, SRMode);
+            //任何情况下按引用模式检查学生
+            int SRT_val_ret = SRT_Validate(student,CreditTransferContractConstants.READ_MODE);
             if (SRT_val_ret != 0) return SRT_val_ret;
                 
             //检查课程
