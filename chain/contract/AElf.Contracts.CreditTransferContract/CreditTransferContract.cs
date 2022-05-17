@@ -559,7 +559,7 @@ namespace AElf.Contracts.CreditTransferContract
             if (mode != 3)
             {
                 if (school == null) return 2;//学校不存在，返回输入错误
-                if (Context.Sender != State.adminAddress.Value)//若不是超级管理员（所有选课请求由超级管理员同意通过），返回身份错误
+                if (Context.Sender != State.adminAddress.Value && Context.Sender != school.SchoolAddress)//若不是超级管理员（所有选课请求由超级管理员同意通过），返回身份错误
                 {
                     if (State.Teacher_Base[Context.Sender] == null)
                         return 1;//试图修改数据的教师尚未注册，且不是学校账号进行修改，返回身份错误
