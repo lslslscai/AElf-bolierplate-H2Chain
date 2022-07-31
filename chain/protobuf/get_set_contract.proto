@@ -18,7 +18,8 @@ import "aelf/options.proto";
 
 // import for using the google.protobuf.Empty type.
 import "google/protobuf/empty.proto";
-
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
 // the name of the C# namespace in which the contract code will be,
 // generated code will also be in this namespace.
 option csharp_namespace = "TJULab.GetSetContract";
@@ -29,45 +30,42 @@ service GetSetContract {
     // the full name of the C# class that will contain the state (here <namespace>.<state-class-name> format).
     option (aelf.csharp_state) = "TJULab.GetSetContract.GetSetContractState";
 
-    // an action defined as a gRPC service method.
-    // this action take a google.protobuf.Empty (placeholder for void) as input
-    // and returns a custom defined type: HelloReturn.
-    //rpc Initialize (google.protobuf.Empty) returns (google.protobuf.Empty) { }
-    rpc Get (GetInput) returns (GetReturn) { }
-    rpc Set (SetInput) returns (google.protobuf.Empty) { }
-    rpc SetContract (SetContractInput) returns (google.protobuf.Empty) { }
-    rpc GetContract (GetContractInput) returns (GetContractOutput) { }
     
-}
-
-// a custom message, used as the return type of the Hello action
-message InitializeInput {
-    string flag = 1;
+    rpc Get (GetInput) returns (GetReturn) {
+        option (aelf.is_view) = true;
+    }
+    rpc Set (SetInput) returns (google.protobuf.Empty) { }
+    
+    rpc SetContract (SetContractInput) returns (google.protobuf.Empty) { }
+    rpc GetContract (google.protobuf.StringValue) returns (google.protobuf.StringValue) { }
+    
+    rpc TestEnvInitialize(google.protobuf.StringValue) returns (google.protobuf.Empty){ }
+    
+    rpc Test(google.protobuf.Empty) returns (google.protobuf.BoolValue){
+        option (aelf.is_view) = true;
+    }
 }
 
 message GetInput {
     string className = 1;
+    bool contextFlag = 2;
 }
 message SetInput {
     string className = 1;
     string jsonString = 2;
 }
-// json string format of class
-message GetReturn {
-    string jsonString = 1;
-}
-// to store user address and class name 
-message AddressName {
+// store author address and contract's name 
+message Author_Contract_Pair {
     aelf.Address address = 1;
     string className = 2;
 }
-// a list to store class names
-message NameList {
-    repeated GetInput nameList = 1;
+// a list to store contracts' name
+message ContractList {
+    repeated string contract = 1;
 }
-// a list to store class json string
-message JsonStringList {
-    repeated GetReturn jsonStringList = 1;
+// a list to store contracts' state as json string
+message StateList {
+    repeated string state = 1;
 }
 
 message SetContractInput{
@@ -75,18 +73,23 @@ message SetContractInput{
     string paramsJson=2;
 }
 
-message SetContractKey {
-    string paramsHash=1;
+message TransactionContext{
+    string SenderString = 1;
+    aelf.Address Sender = 2;
+
+    string SelfString = 3;
+    aelf.Address Self = 4;
+
+    int32 ChainID = 5;
+    int64 currentBlockHeight = 6;
+    google.protobuf.Timestamp currentBlockTime = 7;
+
+    string previousBlockHashString = 8;
+    aelf.Hash previousBlockHash = 9;
 }
 
-message SetContractValue {
-    string paramsJson=1;
+message GetReturn {
+    string state = 1;
+    TransactionContext context = 2;
 }
 
-message GetContractInput{
-    string paramsHash=1;
-}
-
-message GetContractOutput{
-    string paramsJson=1;
-}

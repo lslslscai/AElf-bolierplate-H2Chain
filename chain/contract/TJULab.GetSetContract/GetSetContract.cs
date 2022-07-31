@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using AElf.Sdk.CSharp;
 using Google.Protobuf.WellKnownTypes;
 using AElf.Types;
 using Google.Protobuf;
@@ -16,83 +17,116 @@ namespace TJULab.GetSetContract
     /// </summary>
     public class GetSetContract : GetSetContractContainer.GetSetContractBase
     {
-        /// <summary>
-        /// The implementation of the Hello method. It takes no parameters and returns on of the custom data types
-        /// defined in the protobuf definition file.
-        /// </summary>
-        /// <param name="input">Empty message (from Protobuf)</param>
-        /// <returns>a HelloReturn</returns>
-        /*public override Empty Initialize(Empty input)
+        public override Empty TestEnvInitialize(StringValue input)
         {
-            State.UserMap[Context.Sender] = true;
+            var addressName = new Author_Contract_Pair
+            {
+                Address = Context.Sender,
+                ClassName = input.Value
+            };
+            
+            // if Context.Sender use MultiLang_Contract for the first time (no records in AuthorContractBase)
+            // Create a new Space for Context.Sender 
+            if (State.AuthorContractBase[Context.Sender] == null)
+            {
+                State.AuthorContractBase[Context.Sender] = new ContractList();
+            }
+            // add an access record for Context.Sender, 
+            State.AuthorContractBase[Context.Sender].Contract.Add(input.Value);
+            
+            // if target Contract's State not exists
+            // create a new Space for the Contract, then return a empty State
+            if (State.ContractStateBase[addressName] == null)
+            {
+                State.ContractStateBase[addressName] = new StateList();
+            }
+            // State.ContractStateBase[addressName].State.Add("");
             return new Empty();
-        }*/
+        }
+
         public override GetReturn Get(GetInput input)
         {
-            //Assert(State.UserMap[Context.Sender], "No Permissions");
-            AddressName addressName = new AddressName();
-            addressName.Address = Context.Sender;
-            addressName.ClassName = input.ClassName;
-            if (State.AddressNameListMap[Context.Sender] == null)
+            var addressName = new Author_Contract_Pair
             {
-                State.AddressNameListMap[Context.Sender] = new NameList();
-            }
-            State.AddressNameListMap[Context.Sender].NameList_.Add(input);
-            if (State.AddressNameJsonStringListMap[addressName] == null)
+                Address = Context.Sender,
+                ClassName = input.ClassName
+            };
+
+            Assert(State.AuthorContractBase[Context.Sender] != null, "error1"+input);
+            Assert(State.ContractStateBase[addressName] != null, "error2"+addressName);
+            
+            var context = new TransactionContext();
+            
+            if (input.ContextFlag)
             {
-                State.AddressNameJsonStringListMap[addressName] = new JsonStringList();
-                GetReturn getReturnNull = new GetReturn();
-                getReturnNull.JsonString = "";
-                return getReturnNull;
+                
+                context.Self = Context.Self;
+                context.Sender = Context.Sender;
+                context.ChainID = Context.ChainId;
+                context.CurrentBlockHeight = Context.CurrentHeight;
+                context.CurrentBlockTime = Context.CurrentBlockTime;
+                context.PreviousBlockHash = Context.PreviousBlockHash;
+                context.SelfString = Context.Self.ToString();
+                context.SenderString = Context.Sender.ToString();
+                context.PreviousBlockHashString = Context.PreviousBlockHash.ToString();
             }
 
-            if (State.AddressNameJsonStringListMap[addressName].JsonStringList_.Count == 0)
+            // if target Contract's State exists, but has no record
+            // return a empty State
+            if (State.ContractStateBase[addressName].State.Count == 0)
             {
-                GetReturn getReturnNull = new GetReturn();
-                getReturnNull.JsonString = "";
-                return getReturnNull;
+
+                return new GetReturn
+                {
+                    State = "",
+                    Context = context
+                };
             }
-            GetReturn getReturn = State.AddressNameJsonStringListMap[addressName].JsonStringList_.Last();
-            return getReturn;
+            
+            // fetch the latest version of contract's state, then return it 
+            var getReturn = State.ContractStateBase[addressName].State.Last();
+
+            return new GetReturn
+            {
+                State = getReturn,
+                Context = context
+            };
         }
 
         public override Empty Set(SetInput input)
         {
-            //Assert(State.UserMap[Context.Sender], "No Permissions");
-            AddressName addressName = new AddressName();
-            addressName.Address = Context.Sender;
-            addressName.ClassName = input.ClassName;
-            GetReturn getReturn = new GetReturn();
-            getReturn.JsonString = input.JsonString;
-            State.AddressNameJsonStringListMap[addressName].JsonStringList_.Add(getReturn);
+
+            var addressName = new Author_Contract_Pair
+            {
+                Address = Context.Sender,
+                ClassName = input.ClassName
+            };
+            
+            State.ContractStateBase[addressName].State.Add(input.JsonString);
+            
             return new Empty();
         }
         
         public override Empty SetContract(SetContractInput input)
         {
-            //(State.UserMap[Context.Sender], "No Permissions");
-            
-            SetContractKey setContractKey = new SetContractKey();
-            setContractKey.ParamsHash = input.ParamsHash;
-            
-            SetContractValue setContractValue = new SetContractValue();
-            setContractValue.ParamsJson = input.ParamsJson;
-
-            State.ContractInfoMap[setContractKey] = setContractValue;
+            State.ContractInfoMap[new StringValue {Value = input.ParamsHash}] = new StringValue
+            {
+                Value = input.ParamsJson
+            };
+                
             return new Empty();
         }
 
-        public override GetContractOutput GetContract(GetContractInput input)
+        public override StringValue GetContract(StringValue input)
         {
-            //Assert(State.UserMap[Context.Sender], "No Permissions");
+            Assert(State.ContractInfoMap[input]!=null, "No Matched");
             
-            SetContractKey setContractKey = new SetContractKey();
-            setContractKey.ParamsHash = input.ParamsHash;
-            Assert(State.ContractInfoMap[setContractKey]!=null, "No Matched");
-            SetContractValue setContractValue = State.ContractInfoMap[setContractKey];
-            GetContractOutput getContractOutput = new GetContractOutput();
-            getContractOutput.ParamsJson = setContractValue.ParamsJson;
-            return getContractOutput;
+            return State.ContractInfoMap[input];
+        }
+
+        public override BoolValue Test(Empty input)
+        {
+            return new BoolValue {Value = State.AuthorContractBase[Context.Sender] == null};
         }
     }
 }
