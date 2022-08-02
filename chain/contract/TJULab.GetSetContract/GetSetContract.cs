@@ -19,28 +19,7 @@ namespace TJULab.GetSetContract
     {
         public override Empty TestEnvInitialize(StringValue input)
         {
-            var addressName = new Author_Contract_Pair
-            {
-                Address = Context.Sender,
-                ClassName = input.Value
-            };
-            
-            // if Context.Sender use MultiLang_Contract for the first time (no records in AuthorContractBase)
-            // Create a new Space for Context.Sender 
-            if (State.AuthorContractBase[Context.Sender] == null)
-            {
-                State.AuthorContractBase[Context.Sender] = new ContractList();
-            }
-            // add an access record for Context.Sender, 
-            State.AuthorContractBase[Context.Sender].Contract.Add(input.Value);
-            
-            // if target Contract's State not exists
-            // create a new Space for the Contract, then return a empty State
-            if (State.ContractStateBase[addressName] == null)
-            {
-                State.ContractStateBase[addressName] = new StateList();
-            }
-            // State.ContractStateBase[addressName].State.Add("");
+            ContractStateInitialize(input.Value, Context.Sender);
             return new Empty();
         }
 
@@ -49,17 +28,16 @@ namespace TJULab.GetSetContract
             var addressName = new Author_Contract_Pair
             {
                 Address = Context.Sender,
-                ClassName = input.ClassName
+                ContractName = input.ContractName
             };
 
-            Assert(State.AuthorContractBase[Context.Sender] != null, "error1"+input);
+            Assert(State.AuthorContractBase[Context.Sender] != null, "error1"+ Context.Sender);
             Assert(State.ContractStateBase[addressName] != null, "error2"+addressName);
-            
+            // if target Contract's State not exists
+            // create a new Space for the Contract, then return a empty State
             var context = new TransactionContext();
-            
             if (input.ContextFlag)
             {
-                
                 context.Self = Context.Self;
                 context.Sender = Context.Sender;
                 context.ChainID = Context.ChainId;
@@ -75,7 +53,6 @@ namespace TJULab.GetSetContract
             // return a empty State
             if (State.ContractStateBase[addressName].State.Count == 0)
             {
-
                 return new GetReturn
                 {
                     State = "",
@@ -99,7 +76,7 @@ namespace TJULab.GetSetContract
             var addressName = new Author_Contract_Pair
             {
                 Address = Context.Sender,
-                ClassName = input.ClassName
+                ContractName = input.ContractName
             };
             
             State.ContractStateBase[addressName].State.Add(input.JsonString);
@@ -109,11 +86,13 @@ namespace TJULab.GetSetContract
         
         public override Empty SetContract(SetContractInput input)
         {
-            State.ContractInfoMap[new StringValue {Value = input.ParamsHash}] = new StringValue
+            
+            State.ContractInfoMap[new StringValue {Value = input.CodeInfoHash}] = new StringValue
             {
-                Value = input.ParamsJson
+                Value = input.CodeInfo
             };
-                
+            ContractStateInitialize(input.ContractName, input.Author);
+            
             return new Empty();
         }
 
@@ -124,9 +103,29 @@ namespace TJULab.GetSetContract
             return State.ContractInfoMap[input];
         }
 
-        public override BoolValue Test(Empty input)
+        private void ContractStateInitialize(string contractName, Address author)
         {
-            return new BoolValue {Value = State.AuthorContractBase[Context.Sender] == null};
+            var addressName = new Author_Contract_Pair
+            {
+                Address = author,
+                ContractName = contractName
+            };
+            
+            // if Context.Sender use MultiLang_Contract for the first time (no records in AuthorContractBase)
+            // Create a new Space for Context.Sender 
+            if (State.AuthorContractBase[Context.Sender] == null)
+            {
+                State.AuthorContractBase[Context.Sender] = new ContractList();
+            }
+            // add an access record for Context.Sender, 
+            State.AuthorContractBase[Context.Sender].Contract.Add(contractName);
+            
+            // if target Contract's State not exists
+            // create a new Space for the Contract, then return a empty State
+            if (State.ContractStateBase[addressName] == null)
+            {
+                State.ContractStateBase[addressName] = new StateList();
+            }
         }
     }
 }

@@ -37,27 +37,25 @@ service GetSetContract {
     rpc Set (SetInput) returns (google.protobuf.Empty) { }
     
     rpc SetContract (SetContractInput) returns (google.protobuf.Empty) { }
-    rpc GetContract (google.protobuf.StringValue) returns (google.protobuf.StringValue) { }
-    
-    rpc TestEnvInitialize(google.protobuf.StringValue) returns (google.protobuf.Empty){ }
-    
-    rpc Test(google.protobuf.Empty) returns (google.protobuf.BoolValue){
+    rpc GetContract (google.protobuf.StringValue) returns (google.protobuf.StringValue) {
         option (aelf.is_view) = true;
     }
+    
+    rpc TestEnvInitialize(google.protobuf.StringValue) returns (google.protobuf.Empty){ }
 }
 
 message GetInput {
-    string className = 1;
+    string contractName = 1;
     bool contextFlag = 2;
 }
 message SetInput {
-    string className = 1;
+    string contractName = 1;
     string jsonString = 2;
 }
 // store author address and contract's name 
 message Author_Contract_Pair {
     aelf.Address address = 1;
-    string className = 2;
+    string contractName = 2;
 }
 // a list to store contracts' name
 message ContractList {
@@ -69,8 +67,10 @@ message StateList {
 }
 
 message SetContractInput{
-    string paramsHash=1;
-    string paramsJson=2;
+    aelf.Address author = 1;
+    string contractName = 2;
+    string codeInfoHash = 3;
+    string codeInfo = 4;
 }
 
 message TransactionContext{
