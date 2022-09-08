@@ -17,11 +17,52 @@ namespace TJULab.GetSetContract
     /// </summary>
     public class GetSetContract : GetSetContractContainer.GetSetContractBase
     {
+        #region Action
+        
         public override Empty TestEnvInitialize(StringValue input)
         {
             ContractStateInitialize(input.Value, Context.Sender);
             return new Empty();
         }
+        
+        public override Empty Set(SetInput input)
+        {
+
+            var addressName = new Author_Contract_Pair
+            {
+                Address = Context.Sender,
+                ContractName = input.ContractName
+            };
+            
+            State.ContractStateBase[addressName].State.Add(input.JsonString);
+            
+            return new Empty();
+        }
+        
+        public override Empty SetContract(SetContractInput input)
+        {
+            
+            State.ContractInfoMap[new StringValue {Value = input.CodeInfoHash}] = new StringValue
+            {
+                Value = input.CodeInfo
+            };
+            ContractStateInitialize(input.ContractName, input.Author);
+            
+            return new Empty();
+        }
+
+        public override Empty BinaryUpload(BinaryUploadInput input)
+        {
+            State.ContractInstances[new StringValue {Value = input.Name}] = new BinarySet();//不保留上一次上传的代码
+            
+            State.ContractInstances[new StringValue {Value = input.Name}].Fragments.Add(input);
+
+            return new Empty();
+        }
+        
+        #endregion
+
+        #region View
 
         public override GetReturn Get(GetInput input)
         {
@@ -70,38 +111,21 @@ namespace TJULab.GetSetContract
             };
         }
 
-        public override Empty Set(SetInput input)
-        {
-
-            var addressName = new Author_Contract_Pair
-            {
-                Address = Context.Sender,
-                ContractName = input.ContractName
-            };
-            
-            State.ContractStateBase[addressName].State.Add(input.JsonString);
-            
-            return new Empty();
-        }
-        
-        public override Empty SetContract(SetContractInput input)
-        {
-            
-            State.ContractInfoMap[new StringValue {Value = input.CodeInfoHash}] = new StringValue
-            {
-                Value = input.CodeInfo
-            };
-            ContractStateInitialize(input.ContractName, input.Author);
-            
-            return new Empty();
-        }
-
         public override StringValue GetContract(StringValue input)
         {
             Assert(State.ContractInfoMap[input]!=null, "No Matched");
             
             return State.ContractInfoMap[input];
         }
+
+        public override BinarySet GetContractInstance(StringValue input)
+        {
+            return State.ContractInstances[input];
+        }
+        
+        #endregion
+
+        #region Helper
 
         private void ContractStateInitialize(string contractName, Address author)
         {
@@ -127,5 +151,8 @@ namespace TJULab.GetSetContract
                 State.ContractStateBase[addressName] = new StateList();
             }
         }
+
+        #endregion
+        
     }
 }

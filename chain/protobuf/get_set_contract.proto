@@ -29,19 +29,34 @@ service GetSetContract {
 
     // the full name of the C# class that will contain the state (here <namespace>.<state-class-name> format).
     option (aelf.csharp_state) = "TJULab.GetSetContract.GetSetContractState";
-
     
+    rpc Set (SetInput) returns (google.protobuf.Empty) { }
     rpc Get (GetInput) returns (GetReturn) {
         option (aelf.is_view) = true;
     }
-    rpc Set (SetInput) returns (google.protobuf.Empty) { }
     
     rpc SetContract (SetContractInput) returns (google.protobuf.Empty) { }
     rpc GetContract (google.protobuf.StringValue) returns (google.protobuf.StringValue) {
         option (aelf.is_view) = true;
     }
+
+    rpc BinaryUpload(BinaryUploadInput) returns (google.protobuf.Empty){ }
+    rpc GetContractInstance(google.protobuf.StringValue) returns (BinarySet){
+        option (aelf.is_view) = true;
+    }
     
     rpc TestEnvInitialize(google.protobuf.StringValue) returns (google.protobuf.Empty){ }
+    
+}
+
+message BinarySet{
+    repeated BinaryUploadInput fragments = 1;
+}
+
+message BinaryUploadInput{
+    bytes instance = 1;
+    int32 seqNumber = 2;
+    string name = 3;
 }
 
 message GetInput {
@@ -92,4 +107,5 @@ message GetReturn {
     string state = 1;
     TransactionContext context = 2;
 }
+
 

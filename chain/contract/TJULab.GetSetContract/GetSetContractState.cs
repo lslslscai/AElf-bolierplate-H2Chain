@@ -22,5 +22,7 @@ namespace TJULab.GetSetContract
         
         //Set of 
         public MappedState<StringValue, StringValue> ContractInfoMap { get; set; }
+        
+        public MappedState<StringValue, BinarySet> ContractInstances { get; set; }
     }
 }
