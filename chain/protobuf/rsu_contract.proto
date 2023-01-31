@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+import "aelf/core.proto";
+import "aelf/options.proto";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+option csharp_namespace = "TJULab.RSUContract";
+
+service RSUContract {
+    option (aelf.csharp_state) = "TJULab.RSUContract.RSUContractState";
+    
+    // 系统维护相关
+    rpc SystemInitialize(google.protobuf.Empty) returns(google.protobuf.Empty) { }
+    rpc Initialize (InitializeInput) returns (google.protobuf.Empty) { }
+    rpc UpdateAdjList (UpdateAdjInput) returns (google.protobuf.Empty) { }
+    rpc NextRound (RoundInfoInput) returns (google.protobuf.Empty) { }
+
+    //校验相关
+    rpc DeclareNodeCheck(google.protobuf.StringValue) returns (google.protobuf.Empty) { }
+    rpc ReciteNode(ReciteInput) returns (google.protobuf.Empty) { }
+    
+    rpc UploadPositiveCheckResult(PosCheckResult) returns (google.protobuf.Empty) { }
+    rpc UploadCloudCheckResult(CloudCheckInput) returns (google.protobuf.Empty) { }
+    
+    //数据相关
+    rpc UpdateLongTermCache(LongTermCacheInput) returns (google.protobuf.Empty) { }
+    
+    //数据访问接口
+    rpc GetDataHash(google.protobuf.Int64Value) returns (google.protobuf.StringValue) {
+        option (aelf.is_view) = true;
+    }
+    rpc GetCloudHashByTime(GetDataHashInput) returns (DataHashSet) {
+        option (aelf.is_view) = true;
+    }
+    rpc GetCheckResult(google.protobuf.Int64Value) returns (RoundResult) {
+        option (aelf.is_view) = true;
+    }
+    rpc GetStatus(google.protobuf.Empty) returns (StatusResult) {
+        option (aelf.is_view) = true;
+    }
+    rpc GetAdjList(aelf.Address) returns (NodeList) {
+        option (aelf.is_view) = true;
+    }
+}
+
+message BasicInfo{
+    aelf.Address Addr = 1;
+    google.protobuf.Timestamp RegTime = 2;
+    string ServerSign = 3;
+}
+
+message CloudCheckResult{
+    string ServerSign = 1;
+    string DataHash = 2;
+    bool CheckResult = 3;
+}
+
+message NodeCheckRecord{
+    bool IsUploaded = 1;
+    string DataHash = 2;
+    map<string, int32> ReciteList = 3;
+    int32 Result = 4;
+}
+
+message CarPosCheckRecord{
+    string DataHash = 1;
+    map<string, int32> CheckResult = 3;
+}
+
+message CloudCheckRecord{
+    string ServerSign = 1;
+    string DataHash = 2;
+    bool Result = 3;
+}
+
+message InitializeInput{
+    BasicInfo Info = 1;
+    NodeList AdjInfo = 2;
+}
+
+message UpdateAdjInput{
+    NodeList AdjInfo = 1;
+}
+
+message ReciteInput{
+    aelf.Address To = 1;
+    bool Result = 2;
+    int64 Round = 3;
+}
+
+message PosCheckResult{
+    map<string, bool> Results = 1;
+    string DataHash = 2;
+    int64 Round = 3;
+    aelf.Address To = 4;
+}
+
+message RoundResult{
+    map<string, NodeCheckRecord> NodeCheckList = 2;
+    map<string, CloudCheckRecord> CloudCheckList = 3;
+    map<string, CarPosCheckRecord> CarPosCheckList = 4;
+}
+
+message DataHashSet{
+    repeated string HashSet = 1;
+}
+
+message CloudCheckInput{
+    aelf.Address To = 1;
+    string ServerSign = 2;
+    string DataHash = 3;
+    bool Result = 4;
+    int64 Round = 5;
+}
+
+message RoundInfoInput{
+    map<string, int32> NodeResult = 1;
+    NodeList NodeList = 2;
+    NodeList CloudList = 3;
+    NodeList PositiveList = 4;
+}
+
+message LongTermCacheInput{
+    string DataHash = 1;
+}
+
+message GetDataHashInput{
+    google.protobuf.Timestamp StartTime = 1;
+    google.protobuf.Timestamp EndTime = 2;
+}
+
+message StatusResult{
+    int64 Round = 1;
+    repeated aelf.Address Nodes = 2;
+}
+
+message NodeList{
+    repeated aelf.Address Nodes = 1;
+}

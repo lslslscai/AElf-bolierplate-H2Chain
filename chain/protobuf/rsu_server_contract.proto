@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+import "aelf/core.proto";
+import "aelf/options.proto";
+
+import "google/protobuf/empty.proto";
+
+option csharp_namespace = "TJULab.RSUServerContract";
+
+service RSUServerContract {
+
+    option (aelf.csharp_state) = "TJULab.RSUServerContract.RSUServerContractState";
+
+    rpc NodeRegister (NodeRegisterInput) returns (google.protobuf.Empty) { }
+    rpc NodeModifyNodeInfo (NodeModifyInput) returns (google.protobuf.Empty) { }
+
+    rpc CarRegister (CarRegisterInput) returns (google.protobuf.Empty) { }
+    rpc CarModifyNodeInfo (CarModifyInput) returns (google.protobuf.Empty) { }
+
+    rpc UpdateCheckList (ListInfo) returns (google.protobuf.Empty) { }
+    rpc PublishCarNegativeCheckResult(CarNegCheckResult) returns (google.protobuf.Empty) { }
+    rpc PublishCloudCheckResult(CloudCheckResult) returns (google.protobuf.Empty) { }
+
+
+}
+
+message CarRegisterInput{
+    aelf.Hash CarID = 1;
+}
+
+message CarModifyInput{
+    aelf.Hash CarID = 1;
+}
+
+message CarInfo{
+    aelf.Hash CarID = 1;
+    int64 status = 2;
+}
+
+message NodeRegisterInput{
+    aelf.Address ID = 1;
+    aelf.Hash ChainID = 2;
+}
+
+message NodeModifyInput{
+    aelf.Address ID = 1;
+    aelf.Hash ChainID = 2;
+    int64 Status = 3;
+}
+
+message NodeInfo{
+    aelf.Address ID = 1;
+    aelf.Hash ChainID = 2;
+
+    int64 Credit = 3;
+    int64 Status = 4;
+}
+
+message ListInfo{
+    int64 roundID = 1;
+    repeated aelf.Address NodeList = 2;
+    repeated aelf.Address CarPosList = 3;
+    repeated aelf.Address CloudList = 4;
+}
+
+message CarNegCheckResult{
+    aelf.Address ID = 1;
+    int64 result = 2;
+}
+
+message CloudCheckResult{
+    aelf.Address ID = 1;
+    int64 result = 2;
+}
